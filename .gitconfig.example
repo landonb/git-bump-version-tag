@@ -1,0 +1,19 @@
+# vim:tw=0:ts=2:sw=2:et:norl:ft=gitconfig
+
+# USAGE: You could copy the 'alias' section below to your own
+#        ~/.gitconfig, and then update the executable path and
+#        name the alias how you want.
+#
+#        Or, you could copy this file somewhere and include it
+#        from your own ~/.gitconfig. E.g.,
+#
+#          $ cp .gitconfig.example /path/to/git-bump-version-tag.gitconfig
+#          $ cat <<EOF >> ~/.gitconfig
+#          [include]
+#            path = /path/to/git-bump-version-tag.gitconfig
+#          EOF
+
+[alias]
+  # Alias to `bump`, e.g., `git bump`, `git bump minor`, etc.
+  bump = !/path/to/git-bump-version-tag/bin/git-bump-version-tag
+
