@@ -229,7 +229,7 @@ git_tvp_confirm_next () {
   local prevvers="$2"
   #${GIT_TVP_DRY} && return
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
-  local msg="Ready to bump ${prevvers}“${nextvers}”"
+  local msg="Okay to bump ${prevvers}“${nextvers}”"
   local the_choice
   the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
   [ $? -ne 0 ] && exit 1
@@ -239,7 +239,7 @@ git_tvp_confirm_next () {
 git_tvp_confirm_push () {
   local nextvers="$1"
   #${GIT_TVP_DRY} && return
-  local msg="Ready to push “${nextvers}”"
+  local msg="Okay to push “${nextvers}”"
   local the_choice
   the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
   [ $? -ne 0 ] && exit 1
