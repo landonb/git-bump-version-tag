@@ -1,0 +1,345 @@
+#!/bin/bash
+# vim:tw=0:ts=2:sw=2:et:norl:ft=bash
+# Author: Landon Bouma (landonb &#x40; retrosoft &#x2E; com)
+# Project: https://github.com/landonb/waffle-fries#🥞
+# License: PROPRIETARY AND CONFIDENTIAL.
+
+#GIT_TVP_DRY=true
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+GIT_TVP_DRY=${GIT_TVP_DRY:-false}
+
+insist_cmd () {
+  cmdname="$1"
+  command -v "${cmdname}" > /dev/null && return
+  >&2 echo "ERROR: Missing system command ‘${cmdname}’."
+  exit 1
+}
+
+source_deps () {
+  # Load git_versions_tagged_for_commit, yesnoskip_prompt.
+  . /kit/pyoilerplate/release-ghub-pypi/bin/release-ghub-pypi
+  # Load git_branch_name, git_last_version_tag_describe, remote_exists.
+  . git-my-merge-status
+  insist_cmd 'pep440cmp'
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+if false; then
+  must_head_unversioned () {
+    local remote="${remote:-origin}"
+    commits_vtags="$(git_versions_tagged_for_commit)"
+    [ -z "${commits_vtags}" ] && return
+    local n_tags=$(echo "${commits_vtags}" | wc -l)
+    if [ "${n_tags}" -ne 1 ]; then
+      >&2 echo "ERROR: Expected no more than 1 but found ${n_tags} version tags on HEAD."
+      exit 1
+    fi
+    # MAYBE/2020-03-23 21:50: Allow this use case?
+    # - And do what? Replace tag with different version?
+    # Seems like an unlikely use case, actually.
+    >&2 echo "ERROR: HEAD already version-tagged “${commits_vtags}”"
+    #>&2 echo
+    >&2 echo "- To delete the local tag, try:"
+    #>&2 echo
+    >&2 echo "    git tag --delete ${commits_vtags}"
+    #>&2 echo
+    >&2 echo "- To delete the remote tag, try:"
+    #>&2 echo
+    >&2 echo "    git push ${remote} :refs/tags/${commits_vtags}"
+    exit 1
+  }
+fi
+
+git_branch_head_version () {
+  commits_vtags="$(git_versions_tagged_for_commit)"
+  [ -z "${commits_vtags}" ] && return
+  local n_tags=$(echo "${commits_vtags}" | wc -l)
+  if [ "${n_tags}" -ne 1 ]; then
+    >&2 echo "ERROR: Expected no more than 1 but found ${n_tags} version tags on HEAD."
+    exit 1
+  fi
+  # EXPLAIN/2020-03-24: Why can I get away without `echo -n`, i.e., no newlines in output?
+  # - Does echo know when it's in a pipeline or something?
+  # - Maybe that's why printf would be a better choice!!
+  echo -n "${commits_vtags}"
+}
+
+must_head_unversioned_or_matching () {
+  local headvers="$1"
+  local fullvers="$2"
+  local remote="$3"
+  [ -z "${headvers}" ] && return
+  [ "${headvers}" = "${fullvers}" ] && return
+  # MAYBE/2020-03-23 21:50: Allow this use case?
+  # - And do what? Replace tag with different version?
+  # Seems like an unlikely use case, actually.
+  >&2 echo "ERROR: HEAD already version-tagged “${headvers}”"
+  #>&2 echo
+  >&2 echo "- To delete the local tag, try:"
+  #>&2 echo
+  >&2 echo "    git tag --delete ${headvers}"
+  #>&2 echo
+  >&2 echo "- To delete the remote tag, try:"
+  #>&2 echo
+  >&2 echo "    git push ${remote} :refs/tags/${headvers}"
+  exit 1
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+must_remote_exists () {
+  local remote="$1"
+  remote_exists "${remote}" && return
+  >&2 echo "ERROR: No remote named “${remote}”"
+  exit 1
+}
+
+warn_remote_absent () {
+  local remote="$1"
+  remote_exists "${remote}" && return
+  >&2 echo "ALERT: No remote named “${remote}”"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# Note that there's a similar get-latest-version-tag in git-my-merge-status:
+#   git_last_version_tag_describe
+# except it's naive and finds only the most *recent* version tag.
+# It does not validate that it's the largest version tag.
+# We can do better, if only to just be complete.
+
+GITFLU_RE_VERSION_TAG='[v0-9][0-9.]*'
+
+# Match groups: \1: major * \2: minor * \4: patch * \5: seppa * \6: alpha.
+GITFLU_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
+
+# MAYBE/2020-03-24: The `git tag -l` calls here just look in the current
+# branch. We might want to consider looking across all branches.
+# - But really that would just be a failsafe. Your Git Workflow should
+#   preclude such an event, i.e., all branches will share the same tags,
+#   because you won't tag feature branches, you'll only tag 'master', and
+#   'master' will always be an ancestor of 'develop'.
+# - Here's a trick to get the (latest?) tag name across all branches:
+#   git describe --tags `git rev-list --tags --max-count=1`
+
+latest_version_basetag () {
+  git tag -l "${GITFLU_RE_VERSION_TAG}" | 
+    /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\1.\2.\4/" |
+    sort -r --version-sort |
+    head -n1
+}
+
+latest_version_fulltag () {
+  local basevers="$1"
+  git tag -l "${basevers}*" -l "v${basevers}*" | 
+    /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
+    sort -r -n |
+    head -n1 |
+    /bin/sed -E "s/^[^,]*,//"
+}
+
+latest_version_tag () {
+  local basevers="$(latest_version_basetag)"
+  # See if basevers really tagged or if gleaned from alpha.
+  if git show-ref --tags -- "${basevers}" > /dev/null; then
+    fullvers="${basevers}"
+  else
+    # Assemble alpha-number-prefixed versions to sort and grab largest alpha.
+    fullvers="$(latest_version_fulltag "${basevers}")"
+  fi
+  echo "${fullvers}"
+}
+
+latest_version_parts () {
+  local fullvers="$1"
+  declare -a partsarr
+  partsarr=($(echo "${fullvers}" | /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
+  echo "${partsarr[@]}"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+must_version_gt () {
+  local part_or_version="$1"
+  local fullvers="$2"
+  pep440cmp "${part_or_version}" gt "${fullvers}" > /dev/null && return
+  >&2 echo "ERROR: Desired version not greater than current version!"
+  >&2 echo "  “${part_or_version}” !> “${fullvers}”"
+  exit 1
+}
+
+resolve_version_bump () {
+  local fullvers="$1"
+  local part_or_version="$2"
+  local partsarr
+  partsarr="$(latest_version_parts "${fullvers}")"
+  local major minor patch seppa alpha
+  IFS=' ' read major minor patch seppa alpha <<< "${partsarr[@]}"
+  case "${part_or_version}" in
+    M | ma | major)
+      let 'major += 1'
+      ;;
+    m | mi | minor)
+      let 'minor += 1'
+      ;;
+    p | pa | patch)
+      let 'patch += 1'
+      ;;
+    a | al | alpha)
+      # The alpha part is the only part not guaranteed to be a number.
+      let 'alpha += 1' || (>&2 echo "ERROR: Cannot bump non-number alpha part" && exit 1)
+      ;;
+    s | same)
+      ;;
+    *)
+      >&2 echo "ERROR: Unknown bump part specifier: “${part_or_version}”"
+      exit 1
+      ;;
+  esac
+  nextvers="${major:-0}.${minor:-0}"
+  [ -n "${patch}" ] && nextvers="${nextvers}.${patch}"
+  nextvers="${major:-0}.${minor:-0}.${patch:-0}"
+  [ "${nextvers}" = "0.0.0" ] && nextvers="0.0.1"
+  [ -n "${alpha}" ] && nextvers="${nextvers}${seppa:-a}${alpha}"
+  echo "${nextvers}"
+}
+
+resolve_version_next () {
+  local fullvers="$1"
+  local part_or_version="$2"
+  local nextvers
+  if echo "${part_or_version}" | grep -E "${GITFLU_RE_VERSPARTS}" > /dev/null; then
+    # A version. Compare against latest.
+    must_version_gt "${part_or_version}" "${fullvers}"
+    nextvers="${part_or_version}"
+  else
+    nextvers="$(resolve_version_bump "${fullvers}" "${part_or_version}")"
+    [ $? -ne 0 ] && exit 1
+  fi
+  echo "${nextvers}"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+git_tvp_confirm_next () {
+  local nextvers="$1"
+  local prevvers="$2"
+  #${GIT_TVP_DRY} && return
+  [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
+  local msg="Ready to bump ${prevvers}“${nextvers}”"
+  local the_choice
+  the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
+  [ $? -ne 0 ] && exit 1
+  [ "${the_choice}" != "y" ] && return 1 || return 0
+}
+
+git_tvp_confirm_push () {
+  local nextvers="$1"
+  #${GIT_TVP_DRY} && return
+  local msg="Ready to push “${nextvers}”"
+  local the_choice
+  the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
+  [ $? -ne 0 ] && exit 1
+  [ "${the_choice}" != "y" ] && return 1 || return 0
+}
+
+echo_or_eval () {
+  ${GIT_TVP_DRY} && echo "$@" || eval "$@"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+git_tag_local () {
+  local nextvers="$1"
+  local fullvers="$2"
+  [ "${nextvers}" = "${fullvers}" ] && return
+  git_tvp_confirm_next "${nextvers}" "${fullvers}" || return
+  # git tag -a ${nextvers} -m "Version: ${nextvers}" master
+  echo_or_eval git tag -a "${nextvers}" -m "'Version: ${nextvers}'"
+}
+
+git_tag_remote () {
+  local nextvers="$1"
+  local remote="$2"
+
+  must_remote_exists "${remote}"
+
+# FIXME/2020-03-23 18:13: Perhaps here we could call ls-remote?
+# FIXME/2020-03-24 02:52: Done! What about making it opt-out?
+  # Network call!
+  R2G2P_REMOTE="${remote}" \
+  RELEASE_VERSION="${nextvers}" \
+  R2G2P_COMMIT="$(git rev-parse HEAD)" \
+  github_purge_release_and_tags_of_same_name
+  #
+  ${R2G2P_DO_PUSH_TAG:-false} || return
+
+  git_tvp_confirm_push "${nextvers}" || return
+
+# FIXME: Make vars for origin and master!
+#        -- origin is not bad for default,
+#        but maybe use current branch to push?
+#        Except that, hrmmmmm, GitHub makes a release!
+#        So perhaps you should disallow unless on master?
+#        - And what about maintaining release branches?
+  # NOTE: This'll push both commit and tag, as necessary.
+
+#  ${GIT_TVP_DRY} || must_remote_exists "${remote}"
+  local branch="$(git_branch_name)"
+
+# FIXME/2020-03-24 01:28: Specify branch? Or verify on specific branch??
+  # echo_or_eval git push "${remote}" "master" "refs/tags/${nextvers}"
+  echo_or_eval git push "${remote}" "${branch}" "refs/tags/${nextvers}"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+git_tvp_tag_vers_push () {
+  local part_or_version="${1:-patch}"
+  local remote="${2:-origin}"
+# FIXME/2020-03-24 01:28: Specify branch? Or verify on specific branch??
+  # local branch="${3:-master}"
+
+  # Insist in a Git project.
+  must_cwd_a_git_project || exit 1
+  # Insist in a Git project, and it's tidy.
+  must_pristine_working || exit 1
+
+  local headvers="$(git_branch_head_version)"
+
+  ${GIT_TVP_DRY} && echo "# TEST AHOY!"
+
+  # Insist 'master' or 'release/' branch... ???
+  # ???  must_branch_master
+
+  # must_remote_exists "${remote}"
+  warn_remote_absent "${remote}"
+
+  local fullvers="$(latest_version_tag)"
+
+  local nextvers
+  nextvers="$(resolve_version_next "${fullvers}" "${part_or_version}")"
+  [ $? -ne 0 ] && exit 1
+
+  # Insist HEAD unversioned or matches desired.
+  must_head_unversioned_or_matching "${headvers}" "${fullvers}" "${remote}"
+
+  git_tag_local "${nextvers}" "${fullvers}"
+
+  git_tag_remote "${nextvers}" "${remote}"
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+main () {
+  source_deps
+  git_tvp_tag_vers_push "$@"
+}
+
+if [ "$0" = "${BASH_SOURCE[0]}" ]; then
+  main "${@}"
+fi
+
