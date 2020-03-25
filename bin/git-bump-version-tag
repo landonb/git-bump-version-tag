@@ -179,22 +179,22 @@ resolve_version_bump () {
   local major minor patch seppa alpha
   IFS=' ' read major minor patch seppa alpha <<< "${partsarr[@]}"
   case "${part_or_version}" in
-    M | ma | major)
+    M | -M | ma | major)
       let 'major += 1'; minor=0; patch=0; seppa=; alpha=;
       ;;
-    m | mi | minor)
+    m | -m | mi | minor)
       let 'minor += 1'; patch=0; seppa=; alpha=;
       ;;
-    p | pa | patch)
+    p | -p | pa | patch)
       let 'patch += 1'; seppa=; alpha=;
       ;;
-    a | al | alpha)
+    a | -a | al | alpha)
       # The alpha part is the only part not guaranteed to be a number.
       # Note that if no current alpha, must inc. patch to be < current vers.
       [ -z "${alpha}" ] && let 'patch += 1'
       let 'alpha += 1' || (>&2 echo "ERROR: Cannot bump non-number alpha part" && exit 1)
       ;;
-    s | same)
+    s | -s | same)
       ;;
     *)
       >&2 echo "ERROR: Unknown bump part specifier: “${part_or_version}”"
