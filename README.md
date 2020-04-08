@@ -21,7 +21,7 @@ Use case: To support rapid development and encourage frequent versioning.
 
 ## Usage
 
-If the project has no version tags, 0.0.0 is assumed, so it's easier
+If the project has no version tags, "0.0.0" is assumed, so it's easier
 to get started.
 
 - A bare command increments the patch level.
@@ -33,7 +33,7 @@ to get started.
 
     ```shell
     $ git bump
-    Please Yes/no/skip: Ready to bump “0.0.1”? [Y/n/s] 
+    Please Yes/no/skip: Ready to bump “0.0.1”? [Y/n/s]
     ```
 
   Press `Y` or `y` followed by Enter to tag the HEAD of the current branch.
@@ -52,7 +52,7 @@ to get started.
     ```shell
     $ git bump
     Please Yes/no/skip: Ready to bump “0.0.1”? [Y/n/s] y
-    Network call: ‘git ls-remote --tags origin 0.0.1’... 
+    Network call: ‘git ls-remote --tags origin 0.0.1’...
     Please Yes/no/skip: Ready to push “0.0.1”? [Y/n/s] y
     Counting objects: 58, done.
     Delta compression using up to 8 threads.
@@ -74,7 +74,7 @@ to get started.
 
     ```
     $ git bump M
-    Please Yes/no/skip: Okay to bump “0.0.1” → “1.0.0”? [Y/n/s] 
+    Please Yes/no/skip: Okay to bump “0.0.1” → “1.0.0”? [Y/n/s]
     ```
 
   When starting alpha versioning, the tool knowingly bumps the patch
@@ -82,7 +82,7 @@ to get started.
 
     ```
     $ git bump a
-    Please Yes/no/skip: Okay to bump “0.0.1” → “0.0.2a1”? [Y/n/s] 
+    Please Yes/no/skip: Okay to bump “0.0.1” → “0.0.2a1”? [Y/n/s]
     ```
 
   because "0.0.1" > "0.0.1a1".
@@ -93,7 +93,7 @@ to get started.
 
     ```
     $ git bump s
-    Network call: ‘git ls-remote --tags origin 0.0.1’... 
+    Network call: ‘git ls-remote --tags origin 0.0.1’...
     ```
 
 - Finally, you can specify the version explicitly.
@@ -101,7 +101,39 @@ to get started.
 
     ```
     $ git bump 3.1.4
-    Please Yes/no/skip: Okay to bump “0.0.1” → “3.1.4”? [Y/n/s] 
+    Please Yes/no/skip: Okay to bump “0.0.1” → “3.1.4”? [Y/n/s]
+    ```
+
+## Prerequisites
+
+This git command relies on a Python command,
+[`pep440cmp`](https://pypi.org/project/pep440-version-compare-cli/),
+available from the Python Packing Index (PyPI).
+
+- To install locally, you can simply run pip (or more likely pip3), e.g.,
+
+    ```shell
+    pip3 install pep440-version-compare-cli
+    ```
+
+  Or run the same command as superuser to install globally.
+
+- If you'd like to isolate the application, install to a
+  [virtual environment](https://virtualenv.pypa.io/en/latest/)
+  (after installing
+  [virtualenvwrapper](https://pypi.org/project/virtualenvwrapper/)), e.g.,
+
+    ```shell
+    $ mkvirtualenv git-bump
+    (git-bump) $ pip install pep440-version-compare-cli
+    ```
+
+  Remember, if you use a virtual environemtn, you'll have to load
+  the "venv" before you can use this command, e.g.,
+
+    ```shell
+    $ workon git-bump
+    (git-bump) $ git bump p
     ```
 
 ## Setup
@@ -109,7 +141,7 @@ to get started.
 Choose from one of the following setup options, or go your own way.
 
 1. You could clone this project and wire the `bin/` to your user's `PATH`.
-   E.g.:
+   For instance:
 
       ```shell
       # Clone this repo somewhere.
