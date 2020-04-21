@@ -1,10 +1,12 @@
 #!/bin/bash
 # vim:tw=0:ts=2:sw=2:et:norl:ft=bash
 # Author: Landon Bouma (landonb &#x40; retrosoft &#x2E; com)
-# Project: https://github.com/landonb/waffle-fries#🥞
-# License: PROPRIETARY AND CONFIDENTIAL.
+# Project: https://github.com/landonb/git-bump-version-tag#🐫
+# Copyright © 2020 Landon Bouma. All rights reserved.
+# License: MIT. Please find more in the LICENSE file.
 
-#GIT_TVP_DRY=true
+# YOU: Uncomment (or set from environment) for a dry run:
+#  GIT_TVP_DRY=true
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -229,7 +231,7 @@ resolve_version_next () {
 git_tvp_confirm_next () {
   local nextvers="$1"
   local prevvers="$2"
-  #${GIT_TVP_DRY} && return
+  # ${GIT_TVP_DRY} && return
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
   local msg="Okay to bump ${prevvers}“${nextvers}”"
   local the_choice
@@ -240,7 +242,7 @@ git_tvp_confirm_next () {
 
 git_tvp_confirm_push () {
   local nextvers="$1"
-  #${GIT_TVP_DRY} && return
+  # ${GIT_TVP_DRY} && return
   local msg="Okay to push “${nextvers}”"
   local the_choice
   the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
