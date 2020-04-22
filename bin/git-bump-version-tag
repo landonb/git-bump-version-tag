@@ -20,11 +20,50 @@ insist_cmd () {
 }
 
 source_deps () {
-  # Load git_versions_tagged_for_commit, yesnoskip_prompt.
-  . /kit/pyoilerplate/release-ghub-pypi/bin/release-ghub-pypi
-  # Load git_branch_name, git_last_version_tag_describe, remote_exists.
-  . git-my-merge-status
+  local thispth="$1"
+  local prefix=""
+  local depsnok=false
+
+  _source_it () {
+    local prfx="${1:-.}"
+    local depd="${2:-.}"
+    local file="${3:-.}"
+    local path="${prfx}/${depd}/${file}"
+    if command -v "${file}" > /dev/null; then
+      # Use version found on PATH.
+      . "${file}"
+    elif [ -f "${path}" ]; then
+      # Fallback on local deps/ copy.
+      # NOTE: `dash` complains if missing './'.
+      . "${path}"
+    else
+      local depstxt=''
+      [ "${prfx}" != "." ] && depstxt="in ‘${prfx}/${depd}’ or "
+      >&2 echo "MISSING: ‘${file}’ not found ${depstxt}on PATH."
+      depsnok=true
+    fi
+  }
+
+  # Allow user to symlink executables and not libraries.
+  prefix="$(dirname -- "$(readlink -e -- "${thispth}")")"
+
+  #                                                                 |
+  # *** end boilerplate. -------------------------------------------|
+
   insist_cmd 'pep440cmp'
+
+  # Load ask_yesnoskip.
+  # https://github.com/landonb/sh-ask-yesnoskip
+  _source_it "${prefix}" "../deps/sh-ask-yesnoskip/bin" "ask-yesnoskip.sh"
+
+  # Load git_* functions.
+  # https://github.com/landonb/sh-git-nubs
+  _source_it "${prefix}" "../deps/sh-git-nubs/bin" "git-nubs.sh"
+
+  # *** finish with boilerplate. -----------------------------------|
+  #                                                                 |
+
+  ! ${depsnok}
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -94,20 +133,20 @@ must_head_unversioned_or_matching () {
 
 must_remote_exists () {
   local remote="$1"
-  remote_exists "${remote}" && return
+  git_remote_exists "${remote}" && return
   >&2 echo "ERROR: No remote named “${remote}”"
   exit 1
 }
 
 warn_remote_absent () {
   local remote="$1"
-  remote_exists "${remote}" && return
+  git_remote_exists "${remote}" && return
   >&2 echo "ALERT: No remote named “${remote}”"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-# Note that there's a similar get-latest-version-tag in git-my-merge-status:
+# Note that there's a similar get-latest-version-tag in landonb/sh-git-nubs:
 #   git_last_version_tag_describe
 # except it's naive and finds only the most *recent* version tag.
 # It does not validate that it's the largest version tag.
@@ -235,7 +274,7 @@ git_tvp_confirm_next () {
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
   local msg="Okay to bump ${prevvers}“${nextvers}”"
   local the_choice
-  the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
+  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
   [ $? -ne 0 ] && exit 1
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
@@ -245,7 +284,7 @@ git_tvp_confirm_push () {
   # ${GIT_TVP_DRY} && return
   local msg="Okay to push “${nextvers}”"
   local the_choice
-  the_choice=$(SKIP_PROMPT_NL=true yesnoskip_prompt "${msg}" "Y")
+  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
   [ $? -ne 0 ] && exit 1
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
@@ -308,9 +347,9 @@ git_tvp_tag_vers_push () {
   # local branch="${3:-master}"
 
   # Insist in a Git project.
-  must_cwd_a_git_project || exit 1
+  git_insist_git_repo || exit 1
   # Insist in a Git project, and it's tidy.
-  must_pristine_working || exit 1
+  git_insist_pristine || exit 1
 
   local headvers="$(git_branch_head_version)"
 
@@ -339,7 +378,7 @@ git_tvp_tag_vers_push () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 main () {
-  source_deps
+  source_deps "${BASH_SOURCE[0]}" || exit 1
   git_tvp_tag_vers_push "$@"
 }
 
