@@ -83,13 +83,7 @@ if false; then
     # Seems like an unlikely use case, actually.
     >&2 echo "ERROR: HEAD already version-tagged “${commits_vtags}”"
     #>&2 echo
-    >&2 echo "- To delete the local tag, try:"
-    #>&2 echo
-    >&2 echo "    git tag --delete ${commits_vtags}"
-    #>&2 echo
-    >&2 echo "- To delete the remote tag, try:"
-    #>&2 echo
-    >&2 echo "    git push ${remote} :refs/tags/${commits_vtags}"
+    print_tag_delete_hints "${commits_vtags}" "${remote}"
     exit 1
   }
 fi
@@ -119,6 +113,13 @@ must_head_unversioned_or_matching () {
   # Seems like an unlikely use case, actually.
   >&2 echo "ERROR: HEAD already version-tagged “${headvers}”"
   #>&2 echo
+  print_tag_delete_hints "${headvers}" "${remote}"
+  exit 1
+}
+
+print_tag_delete_hints () {
+  local headvers="$1"
+  local remote="$2"
   >&2 echo "- To delete the local tag, try:"
   #>&2 echo
   >&2 echo "    git tag --delete ${headvers}"
@@ -126,7 +127,6 @@ must_head_unversioned_or_matching () {
   >&2 echo "- To delete the remote tag, try:"
   #>&2 echo
   >&2 echo "    git push ${remote} :refs/tags/${headvers}"
-  exit 1
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
