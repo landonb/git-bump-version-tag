@@ -237,6 +237,10 @@ resolve_version_bump () {
       ;;
     s | -s | same)
       ;;
+    d | -d | delete)
+      # This function is called in a subshell, so we'll scan again later to set
+      #  PERFORM_DELETE=true.
+      ;;
     *)
       >&2 echo "ERROR: Unknown bump part specifier: “${part_or_version}”"
       exit 1
@@ -267,12 +271,37 @@ resolve_version_next () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+parse_args_for_delete () {
+  PERFORM_DELETE=false
+  local part_or_version="$1"
+  if ! ( echo "${part_or_version}" | grep -E "${GITFLU_RE_VERSPARTS}" > /dev/null ); then
+    case "${part_or_version}" in
+      d | -d | delete)
+        PERFORM_DELETE=true
+        ;;
+      *)
+        ;;
+    esac
+  fi
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 git_tvp_confirm_next () {
   local nextvers="$1"
   local prevvers="$2"
   # ${GIT_TVP_DRY} && return
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
   local msg="Okay to bump ${prevvers}“${nextvers}”"
+  local the_choice
+  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
+  [ $? -ne 0 ] && exit 1
+  [ "${the_choice}" != "y" ] && return 1 || return 0
+}
+
+git_tvp_confirm_delete () {
+  local nextvers="$1"
+  local msg="Okay to delete “${nextvers}”"
   local the_choice
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
   [ $? -ne 0 ] && exit 1
@@ -295,13 +324,21 @@ echo_or_eval () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-git_tag_local () {
+git_tag_local_add () {
   local nextvers="$1"
   local fullvers="$2"
+  ${PERFORM_DELETE} && return
   [ "${nextvers}" = "${fullvers}" ] && return
   git_tvp_confirm_next "${nextvers}" "${fullvers}" || return
   # git tag -a ${nextvers} -m "Version: ${nextvers}" master
   echo_or_eval git tag -a "${nextvers}" -m "'Version: ${nextvers}'"
+}
+
+git_tag_local_delete () {
+  local nextvers="$1"
+  ${PERFORM_DELETE} || return
+  git_tvp_confirm_delete "${nextvers}" || return
+  echo_or_eval git tag -d "${nextvers}"
 }
 
 git_tag_remote () {
@@ -310,31 +347,28 @@ git_tag_remote () {
 
   must_remote_exists "${remote}"
 
-# FIXME/2020-03-23 18:13: Perhaps here we could call ls-remote?
-# FIXME/2020-03-24 02:52: Done! What about making it opt-out?
+  # (lb): I considerd making the ls-remote call (which, e.g., pings GitHub)
+  # to be optional. But it's just as easy to Ctrl-C when the script gets here.
+
   # Network call!
   R2G2P_REMOTE="${remote}" \
   RELEASE_VERSION="${nextvers}" \
   R2G2P_COMMIT="$(git rev-parse HEAD)" \
+  R2G2P_GHUB_CLOBBER_CERTIFIED=${PERFORM_DELETE} \
   github_purge_release_and_tags_of_same_name
   #
   ${R2G2P_DO_PUSH_TAG:-false} || return
 
+  # Note that if the tag existing, it may have been removed in call to
+  # github_purge_release_and_tags_of_same_name, so can return now on
+  # delete command.
+  ${PERFORM_DELETE} && return
+
   git_tvp_confirm_push "${nextvers}" || return
 
-# FIXME: Make vars for origin and master!
-#        -- origin is not bad for default,
-#        but maybe use current branch to push?
-#        Except that, hrmmmmm, GitHub makes a release!
-#        So perhaps you should disallow unless on master?
-#        - And what about maintaining release branches?
   # NOTE: This'll push both commit and tag, as necessary.
-
-#  ${GIT_TVP_DRY} || must_remote_exists "${remote}"
+  #       - And GitHub will make a release object, too.
   local branch="$(git_branch_name)"
-
-# FIXME/2020-03-24 01:28: Specify branch? Or verify on specific branch??
-  # echo_or_eval git push "${remote}" "master" "refs/tags/${nextvers}"
   echo_or_eval git push "${remote}" "${branch}" "refs/tags/${nextvers}"
 }
 
@@ -367,10 +401,13 @@ git_tvp_tag_vers_push () {
   nextvers="$(resolve_version_next "${fullvers}" "${part_or_version}")"
   [ $? -ne 0 ] && exit 1
 
+  parse_args_for_delete "${part_or_version}"
+
   # Insist HEAD unversioned or matches desired.
   must_head_unversioned_or_matching "${headvers}" "${fullvers}" "${remote}"
 
-  git_tag_local "${nextvers}" "${fullvers}"
+  git_tag_local_add "${nextvers}" "${fullvers}"
+  git_tag_local_delete "${nextvers}"
 
   git_tag_remote "${nextvers}" "${remote}"
 }
