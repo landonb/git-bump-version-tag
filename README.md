@@ -96,12 +96,20 @@ to get started.
     Network call: ‘git ls-remote --tags origin 0.0.1’...
     ```
 
-- Finally, you can specify the version explicitly.
+- If you want, you can specify the version explicitly.
   E.g.:
 
     ```
     $ git bump 3.1.4
     Please Yes/no/skip: Okay to bump “0.0.1” → “3.1.4”? [Y/n/s]
+    ```
+
+- And finally, you can also delete the local and remote tags.
+  E.g.:
+
+    ```
+    $ git bump d
+    Please Yes/no/skip: Okay to delete “1.2.0”? [Y/n/s]
     ```
 
 ## Prerequisites
