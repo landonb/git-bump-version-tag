@@ -152,10 +152,10 @@ warn_remote_absent () {
 # It does not validate that it's the largest version tag.
 # We can do better, if only to just be complete.
 
-GITFLU_RE_VERSION_TAG='[v0-9][0-9.]*'
+GITSMART_RE_VERSION_TAG='[v0-9][0-9.]*'
 
 # Match groups: \1: major * \2: minor * \4: patch * \5: seppa * \6: alpha.
-GITFLU_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
+GITSMART_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
 
 # MAYBE/2020-03-24: The `git tag -l` calls here just look in the current
 # branch. We might want to consider looking across all branches.
@@ -167,16 +167,16 @@ GITFLU_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
 #   git describe --tags `git rev-list --tags --max-count=1`
 
 latest_version_basetag () {
-  git tag -l "${GITFLU_RE_VERSION_TAG}" | 
-    /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\1.\2.\4/" |
+  git tag -l "${GITSMART_RE_VERSION_TAG}" |
+    /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\1.\2.\4/" |
     sort -r --version-sort |
     head -n1
 }
 
 latest_version_fulltag () {
   local basevers="$1"
-  git tag -l "${basevers}*" -l "v${basevers}*" | 
-    /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
+  git tag -l "${basevers}*" -l "v${basevers}*" |
+    /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
     sort -r -n |
     head -n1 |
     /bin/sed -E "s/^[^,]*,//"
@@ -197,7 +197,7 @@ latest_version_tag () {
 latest_version_parts () {
   local fullvers="$1"
   declare -a partsarr
-  partsarr=($(echo "${fullvers}" | /bin/sed -E "s/${GITFLU_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
+  partsarr=($(echo "${fullvers}" | /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
   echo "${partsarr[@]}"
 }
 
@@ -258,7 +258,7 @@ resolve_version_next () {
   local fullvers="$1"
   local part_or_version="$2"
   local nextvers
-  if echo "${part_or_version}" | grep -E "${GITFLU_RE_VERSPARTS}" > /dev/null; then
+  if echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null; then
     # A version. Compare against latest.
     must_version_gt "${part_or_version}" "${fullvers}"
     nextvers="${part_or_version}"
@@ -274,7 +274,7 @@ resolve_version_next () {
 parse_args_for_delete () {
   PERFORM_DELETE=false
   local part_or_version="$1"
-  if ! ( echo "${part_or_version}" | grep -E "${GITFLU_RE_VERSPARTS}" > /dev/null ); then
+  if ! ( echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null ); then
     case "${part_or_version}" in
       d | -d | delete)
         PERFORM_DELETE=true
