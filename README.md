@@ -11,18 +11,17 @@ Keeps you from figuring out the version yourself and typing, say:
 
   ```shell
   git tag -a "1.2.3" -m "Version: 1.2.3"
-  git push origin master "refs/tags/1.2.3"
+  git push upstream release "refs/tags/1.2.3"
   ```
 
-This command adds error and sanity checking,
-and lets you specify which version part to bump.
+This command adds error and sanity checking, and lets you specify which version
+part to bump, and it'll figure out the remote automatically (or you can specify it).
 
 Use case: To support rapid development and encourage frequent versioning.
 
 ## Usage
 
-If the project has no version tags, "0.0.0" is assumed, so it's easier
-to get started.
+If the project has no version tags, "0.0.0" is assumed, so it's easy to get started.
 
 - A bare command increments the patch level.
 
@@ -52,7 +51,7 @@ to get started.
     ```shell
     $ git bump
     Please Yes/no/skip: Ready to bump “0.0.1”? [Y/n/s] y
-    Network call: ‘git ls-remote --tags origin 0.0.1’...
+    Network call: ‘git ls-remote --tags upstream 0.0.1’...
     Please Yes/no/skip: Ready to push “0.0.1”? [Y/n/s] y
     Counting objects: 58, done.
     Delta compression using up to 8 threads.
@@ -62,7 +61,7 @@ to get started.
     remote: Resolving deltas: 100% (40/40), completed with 14 local objects.
     git log
     To github.com:landonb/git-bump-version-tag.git
-       0834e71..4a10078  master -> master
+       0834e71..4a10078  release -> release
      * [new tag]         0.0.1 -> 0.0.1
     ```
 
@@ -93,7 +92,7 @@ to get started.
 
     ```
     $ git bump s
-    Network call: ‘git ls-remote --tags origin 0.0.1’...
+    Network call: ‘git ls-remote --tags upstream 0.0.1’...
     ```
 
 - If you want, you can specify the version explicitly.
@@ -136,7 +135,7 @@ available from the Python Packing Index (PyPI).
     (git-bump) $ pip install pep440-version-compare-cli
     ```
 
-  Remember, if you use a virtual environemtn, you'll have to load
+  Remember, if you use a virtual environment, you'll have to load
   the "venv" before you can use this command, e.g.,
 
     ```shell
@@ -191,7 +190,7 @@ Choose from one of the following setup options, or go your own way.
   https://github.com/mpalmer/git-version-bump —
   A Ruby project that bumps Git version tags.
 
-  https://github.com/c4urself/bump2version/ —
+  https://github.com/c4urself/bump2version —
   A Python project that bumps version strings in files.
 
 This project is most similar to the Ruby project,
