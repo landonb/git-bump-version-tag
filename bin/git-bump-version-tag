@@ -68,26 +68,6 @@ source_deps () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-if false; then
-  must_head_unversioned () {
-    local remote="${remote:-origin}"
-    commits_vtags="$(git_versions_tagged_for_commit)"
-    [ -z "${commits_vtags}" ] && return
-    local n_tags=$(echo "${commits_vtags}" | wc -l)
-    if [ "${n_tags}" -ne 1 ]; then
-      >&2 echo "ERROR: Expected no more than 1 but found ${n_tags} version tags on HEAD."
-      exit 1
-    fi
-    # MAYBE/2020-03-23 21:50: Allow this use case?
-    # - And do what? Replace tag with different version?
-    # Seems like an unlikely use case, actually.
-    >&2 echo "ERROR: HEAD already version-tagged “${commits_vtags}”"
-    #>&2 echo
-    print_tag_delete_hints "${commits_vtags}" "${remote}"
-    exit 1
-  }
-fi
-
 git_branch_head_version () {
   commits_vtags="$(git_versions_tagged_for_commit)"
   [ -z "${commits_vtags}" ] && return
