@@ -68,6 +68,30 @@ source_deps () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# Get the name of the remote of the tracking branch.
+# E.g., if the user sets the current branch to track upstream/release, e.g.,
+#   git checkout --track upstream/release
+# or
+#   git push -u upstream release
+# or
+#   git branch -u upstream/release
+# prints the remote name, "upstream".
+# Ref:
+#   Find out which remote branch a local branch is tracking
+#   https://stackoverflow.com/questions/171550/
+#     find-out-which-remote-branch-a-local-branch-is-tracking
+git_tracking_branch_remote () {
+  # Either of these calls works:
+  #   git rev-parse --abbrev-ref --symbolic-full-name @{u}
+  # or
+  #   git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)"
+  # and each returns a string formatted as "{remote}/{branch}".
+  # We just want the remote.
+  git rev-parse --abbrev-ref --symbolic-full-name @{u} | /bin/sed -e 's#/.*$##'
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 git_branch_head_version () {
   commits_vtags="$(git_versions_tagged_for_commit)"
   [ -z "${commits_vtags}" ] && return
@@ -141,8 +165,10 @@ GITSMART_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
 # branch. We might want to consider looking across all branches.
 # - But really that would just be a failsafe. Your Git Workflow should
 #   preclude such an event, i.e., all branches will share the same tags,
-#   because you won't tag feature branches, you'll only tag 'master', and
-#   'master' will always be an ancestor of 'develop'.
+#   because you won't tag feature branches, you'll only tag the main
+#   release branch (possibly called "release"), and that release branch
+#   will always be an ancestor of the main development trunk (possibly
+#   called "main", "develop", "trunk", or "proving" (the name I use)).
 # - Here's a trick to get the (latest?) tag name across all branches:
 #   git describe --tags `git rev-list --tags --max-count=1`
 
@@ -310,7 +336,10 @@ git_tag_local_add () {
   ${PERFORM_DELETE} && return
   [ "${nextvers}" = "${fullvers}" ] && return
   git_tvp_confirm_next "${nextvers}" "${fullvers}" || return
-  # git tag -a ${nextvers} -m "Version: ${nextvers}" master
+  # Note that this command tags HEAD, as opposed to a specific branch.
+  # E.g., we could tag, say, the release branch:
+  #   git tag -a ${nextvers} -m "Version: ${nextvers}" "release"
+  # but that would probably be confusing to the user. So stick to HEAD.
   echo_or_eval git tag -a "${nextvers}" -m "'Version: ${nextvers}'"
 }
 
@@ -356,9 +385,10 @@ git_tag_remote () {
 
 git_tvp_tag_vers_push () {
   local part_or_version="${1:-patch}"
-  local remote="${2:-origin}"
-# FIXME/2020-03-24 01:28: Specify branch? Or verify on specific branch??
-  # local branch="${3:-master}"
+  local remote="${2}"
+  # Default to the remote tracking branch remote, or fallback to "origin".
+  [ -z "${remote}" ] && remote="$(git_tracking_branch_remote)"
+  [ -z "${remote}" ] && remote="origin"
 
   # Insist in a Git project.
   git_insist_git_repo || exit 1
@@ -369,10 +399,9 @@ git_tvp_tag_vers_push () {
 
   ${GIT_TVP_DRY} && echo "# TEST AHOY!"
 
-  # Insist 'master' or 'release/' branch... ???
-  # ???  must_branch_master
-
-  # must_remote_exists "${remote}"
+  # We don't need the remote to exist; we can still tag the local branch.
+  # SKIP:
+  #   must_remote_exists "${remote}"
   warn_remote_absent "${remote}"
 
   local fullvers="$(latest_version_tag)"
