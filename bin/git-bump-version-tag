@@ -10,6 +10,33 @@
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# FIXME/2020-07-01: Handle this error better: If there's no tracking branch,
+# you'll see, e.g.,
+#   $ git bump p
+#   fatal: ambiguous argument '@{u}': unknown revision or path not in the working tree.
+#   Use '--' to separate paths from revisions, like this:
+#   'git <command> [<revision>...] -- [<file>...]'
+#   ALERT: No remote named “@{u}”
+#   Please Yes/no/skip: Okay to bump “1.0.2” → “1.0.3”? [Y/n/s]
+#   ERROR: No remote named “@{u}”
+# The current work-around is to set a tracking branch, e.g.,:
+#   $ git pr -u
+#   Branch 'release' set up to track remote branch 'release' from 'release'.
+#   Everything up-to-date
+#   $ git bump p
+#   Please Yes/no/skip: Okay to bump “1.0.3” → “1.0.4”? [Y/n/s]
+# Except when I create a new branch to test, I get a different error, e.g.,
+#   $ git co -b test
+#   Switched to a new branch 'test'
+#   $ git bump s
+#   fatal: no upstream configured for branch 'test'
+#   ALERT: No remote named “origin”
+#   ERROR: No remote named “origin”
+# Which is actually what I'd expect. So I'm not quite sure how I triggered
+# the first error I mentioned.
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 GIT_TVP_DRY=${GIT_TVP_DRY:-false}
 
 insist_cmd () {
