@@ -178,7 +178,7 @@ git_tracking_branch_remote () {
   #   git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)"
   # and each returns a string formatted as "{remote}/{branch}".
   # We just want the remote.
-  git rev-parse --abbrev-ref --symbolic-full-name @{u} | /bin/sed -e 's#/.*$##'
+  git rev-parse --abbrev-ref --symbolic-full-name @{u} | /usr/bin/env sed -e 's#/.*$##'
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -265,7 +265,7 @@ GITSMART_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
 
 latest_version_basetag () {
   git tag -l "${GITSMART_RE_VERSION_TAG}" |
-    /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\1.\2.\4/" |
+    /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1.\2.\4/" |
     sort -r --version-sort |
     head -n1
 }
@@ -273,10 +273,10 @@ latest_version_basetag () {
 latest_version_fulltag () {
   local basevers="$1"
   git tag -l "${basevers}*" -l "v${basevers}*" |
-    /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
+    /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
     sort -r -n |
     head -n1 |
-    /bin/sed -E "s/^[^,]*,//"
+    /usr/bin/env sed -E "s/^[^,]*,//"
 }
 
 latest_version_tag () {
@@ -294,7 +294,7 @@ latest_version_tag () {
 latest_version_parts () {
   local fullvers="$1"
   declare -a partsarr
-  partsarr=($(echo "${fullvers}" | /bin/sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
+  partsarr=($(echo "${fullvers}" | /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
   echo "${partsarr[@]}"
 }
 
