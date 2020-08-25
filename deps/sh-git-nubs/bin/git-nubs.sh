@@ -126,12 +126,12 @@ if false; then
 
   git_last_version_name () {
     local described="$(git_last_version_tag_describe_safe)"
-    echo ${described} | /bin/sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\1/g"
+    echo ${described} | /usr/bin/env sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\1/g"
   }
 
   git_last_version_dist () {
     local described="$(git_last_version_tag_describe_safe)"
-    echo ${described} | /bin/sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\2/g"
+    echo ${described} | /usr/bin/env sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\2/g"
   }
 
   git_last_version_absent () {
