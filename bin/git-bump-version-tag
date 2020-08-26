@@ -193,7 +193,7 @@ git_branch_head_version () {
   # EXPLAIN/2020-03-24: Why can I get away without `echo -n`, i.e., no newlines in output?
   # - Does echo know when it's in a pipeline or something?
   # - Maybe that's why printf would be a better choice!!
-  echo -n "${commits_vtags}"
+  /usr/bin/env echo -n "${commits_vtags}"
 }
 
 must_head_unversioned_or_matching () {
