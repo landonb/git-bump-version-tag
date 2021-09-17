@@ -121,6 +121,8 @@ git_versions_tagged_for_commit () {
   #   7ca83ee766d31181b34e6aafb340f537e2cc0d6f refs/tags/v1.2.3^{}
   #   2aadd869b4ff4acc945b073a70be7e6573341ebc refs/tags/v1.2.3a3
   #   7ca83ee766d31181b34e6aafb340f537e2cc0d6f refs/tags/v1.2.3a3^{}
+  # (Note that the pattern matches looser than semantic versioning spec,
+  #  e.g., "v1.2.3a3" is not valid SemVer, but "1.2.3-a3" is.)
   # Where:
   #   $ git cat-file -t af6ec9a9ae01592d36d06917e47b8ee9822178a7
   #   tag
@@ -169,6 +171,30 @@ git_latest_version_basetag () {
     /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1.\2.\4/" |
     sort -r --version-sort |
     head -n1
+}
+
+latest_version_fulltag () {
+  local basevers="$1"
+
+  git tag -l "${basevers}*" -l "v${basevers}*" |
+    /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
+    sort -r -n |
+    head -n1 |
+    /usr/bin/env sed -E "s/^[^,]*,//"
+}
+
+git_latest_version_tag () {
+  local basevers="$(git_latest_version_basetag)"
+
+  # See if basevers really tagged or if gleaned from alpha.
+  if git show-ref --tags -- "${basevers}" > /dev/null; then
+    fullvers="${basevers}"
+  else
+    # Assemble alpha-number-prefixed versions to sort and grab largest alpha.
+    fullvers="$(latest_version_fulltag "${basevers}")"
+  fi
+
+  [ -z "${fullvers}" ] || echo "${fullvers}"
 }
 
 # ***
