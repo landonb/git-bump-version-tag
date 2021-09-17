@@ -42,7 +42,8 @@ GIT_TVP_DRY=${GIT_TVP_DRY:-false}
 # ***
 
 insist_cmd () {
-  cmdname="$1"
+  local cmdname="$1"
+
   command -v "${cmdname}" > /dev/null && return
   >&2 echo "ERROR: Missing system command ‘${cmdname}’."
   exit 1
