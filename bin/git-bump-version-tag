@@ -145,7 +145,7 @@ source_deps () {
   # https://github.com/landonb/sh-ask-yesnoskip
   _source_it "${prefix}" "../deps/sh-ask-yesnoskip/bin" "ask-yesnoskip.sh"
 
-  # Load git_* functions.
+  # Load git_* functions, including git_latest_version_basetag.
   # https://github.com/landonb/sh-git-nubs
   _source_it "${prefix}" "../deps/sh-git-nubs/bin" "git-nubs.sh"
 
@@ -244,35 +244,6 @@ warn_remote_absent () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-# Note that there's a similar get-latest-version-tag in landonb/sh-git-nubs:
-#   git_last_version_tag_describe
-# except it's naive and finds only the most *recent* version tag.
-# It does not validate that it's the largest version tag.
-# We can do better, if only to just be complete.
-
-GITSMART_RE_VERSION_TAG='[v0-9][0-9.]*'
-
-# Match groups: \1: major * \2: minor * \4: patch * \5: seppa * \6: alpha.
-GITSMART_RE_VERSPARTS='^v?([0-9]+)\.([0-9]+)(\.([0-9]+)([^0-9]*)(.*))?'
-
-# MAYBE/2020-03-24: The `git tag -l` calls here just look in the current
-# branch. We might want to consider looking across all branches.
-# - But really that would just be a failsafe. Your Git Workflow should
-#   preclude such an event, i.e., all branches will share the same tags,
-#   because you won't tag feature branches, you'll only tag the main
-#   release branch (possibly called "release"), and that release branch
-#   will always be an ancestor of the main development trunk (possibly
-#   called "main", "develop", "trunk", or "proving" (the name I use)).
-# - Here's a trick to get the (latest?) tag name across all branches:
-#   git describe --tags `git rev-list --tags --max-count=1`
-
-latest_version_basetag () {
-  git tag -l "${GITSMART_RE_VERSION_TAG}" |
-    /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1.\2.\4/" |
-    sort -r --version-sort |
-    head -n1
-}
-
 latest_version_fulltag () {
   local basevers="$1"
   git tag -l "${basevers}*" -l "v${basevers}*" |
@@ -283,7 +254,7 @@ latest_version_fulltag () {
 }
 
 latest_version_tag () {
-  local basevers="$(latest_version_basetag)"
+  local basevers="$(git_latest_version_basetag)"
   # See if basevers really tagged or if gleaned from alpha.
   if git show-ref --tags -- "${basevers}" > /dev/null; then
     fullvers="${basevers}"
