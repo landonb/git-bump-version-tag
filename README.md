@@ -14,7 +14,7 @@ Keeps you from figuring out the version yourself and typing, say:
   git push upstream release "refs/tags/1.2.3"
   ```
 
-This command adds error and sanity checking, and lets you specify which version
+This command adds error and reality checking, and lets you specify which version
 part to bump, and it'll figure out the remote automatically (or you can specify it).
 
 Use case: To support rapid development and encourage frequent versioning.
@@ -196,7 +196,7 @@ Choose from one of the following setup options, or go your own way.
 This project is most similar to the Ruby project,
 ``git-version-bump``, with the following differences:
 - This project is pure Bash (it could be POSIX except for array usage);
-- This project performs error- and sanity-checking;
+- This project performs error- and reality-checking;
 - This project supports bumping the alpha part; and
 - This project calls git-push.
 
