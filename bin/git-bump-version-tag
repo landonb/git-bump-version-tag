@@ -145,7 +145,7 @@ source_deps () {
   # https://github.com/landonb/sh-ask-yesnoskip
   _source_it "${prefix}" "../deps/sh-ask-yesnoskip/bin" "ask-yesnoskip.sh"
 
-  # Load git_* functions, including git_latest_version_basetag.
+  # Load git_* functions, including git_latest_version_tag.
   # https://github.com/landonb/sh-git-nubs
   _source_it "${prefix}" "../deps/sh-git-nubs/bin" "git-nubs.sh"
 
@@ -243,27 +243,6 @@ warn_remote_absent () {
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
-latest_version_fulltag () {
-  local basevers="$1"
-  git tag -l "${basevers}*" -l "v${basevers}*" |
-    /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\6,\1.\2.\4\5\6/" |
-    sort -r -n |
-    head -n1 |
-    /usr/bin/env sed -E "s/^[^,]*,//"
-}
-
-latest_version_tag () {
-  local basevers="$(git_latest_version_basetag)"
-  # See if basevers really tagged or if gleaned from alpha.
-  if git show-ref --tags -- "${basevers}" > /dev/null; then
-    fullvers="${basevers}"
-  else
-    # Assemble alpha-number-prefixed versions to sort and grab largest alpha.
-    fullvers="$(latest_version_fulltag "${basevers}")"
-  fi
-  echo "${fullvers}"
-}
 
 latest_version_parts () {
   local fullvers="$1"
@@ -469,7 +448,7 @@ git_tvp_tag_vers_push () {
   #   must_remote_exists "${remote}"
   warn_remote_absent "${remote}"
 
-  local fullvers="$(latest_version_tag)"
+  local fullvers="$(git_latest_version_tag)"
 
   local nextvers
   nextvers="$(resolve_version_next "${fullvers}" "${part_or_version}")"
