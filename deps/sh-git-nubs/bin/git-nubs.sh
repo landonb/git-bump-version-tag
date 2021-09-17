@@ -138,7 +138,6 @@ git_versions_tagged_for_commit () {
       -e 's/\^{}//'
 }
 
-
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 # Return the latest version tag (per Semantic Versioning rules).
@@ -199,29 +198,9 @@ git_latest_version_tag () {
 
 # ***
 
-git_last_version_tag_describe_safe () {
+git_latest_version_basetag_safe () {
   git_latest_version_basetag || printf '0.0.0-✗-g0000000'
 }
-
-# Unused...
-if false; then
-  GITSMART_RE_LONG_TAG_PARTS='([^-]+)-([^-]+)-(.*)'
-
-  git_last_version_name () {
-    local described="$(git_last_version_tag_describe_safe)"
-    printf "${described}" | /bin/sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\1/g"
-  }
-
-  git_last_version_dist () {
-    local described="$(git_last_version_tag_describe_safe)"
-    printf "${described}" | /bin/sed -E "s/${GITSMART_RE_LONG_TAG_PARTS}/\2/g"
-  }
-
-  git_last_version_absent () {
-    local distance="$(git_last_version_dist)"
-    [ "${distance}" = '✗' ]
-  }
-fi
 
 git_since_most_recent_commit_epoch_ts () {
   git --no-pager log -1 --format=%at HEAD 2> /dev/null
@@ -236,7 +215,7 @@ git_since_latest_version_tag_epoch_ts () {
   git --no-pager \
     log -1 \
     --format=%at \
-    "$(git_last_version_tag_describe_safe)" \
+    "$(git_latest_version_basetag_safe)" \
     2> /dev/null
 }
 
