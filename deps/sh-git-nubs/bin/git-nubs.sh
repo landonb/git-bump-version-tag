@@ -7,11 +7,15 @@
 
 git_branch_exists () {
   local branch_name="$1"
+
   git show-ref --verify --quiet refs/heads/${branch_name}
 }
 
 git_branch_name () {
-  local project_root="$(git rev-parse --show-toplevel)"
+  local project_root
+  project_root="$(git_project_root)"
+  [ $? -eq 0 ] || return
+
   # Note that $(git rev-parse HEAD) returns the hash, not the name,
   # so we add the option, --abbrev-ref.
   # - But first! check there's actually a branch, i.e., if `git init`
@@ -22,6 +26,7 @@ git_branch_name () {
 
     return
   fi
+
   # 2020-09-21: (lb): Adding `=loose`:
   # - For whatever reason, I'm seeing this behavior:
   #   - On Linux, `git rev-parse --abbrev-ref` returns simply, e.g., "my_branch".
@@ -39,8 +44,34 @@ git_branch_name () {
   printf %s "${branch_name}"
 }
 
+git_branch_name_full () {
+  git rev-parse --symbolic-full-name HEAD
+}
+
 git_HEAD_commit_sha () {
   git rev-parse HEAD
+}
+
+git_commit_object_name () {
+  git rev-parse "${1:-HEAD}"
+}
+
+git_first_commit_sha () {
+  git rev-list --max-parents=0 HEAD
+}
+
+git_first_commit_message () {
+  git --no-pager log --format=%s --max-parents=0 HEAD
+}
+
+git_latest_commit_message () {
+  git --no-pager log --format=%s -1 "${1:-HEAD}"
+}
+
+git_number_of_commits () {
+  local gitref="${1:-HEAD}"
+
+  git rev-list --count "${gitref}"
 }
 
 git_remote_exists () {
@@ -53,9 +84,18 @@ git_remote_branch_exists () {
   local remote="$1"
   local branch="$2"
 
-  git show-branch remotes/${remote}/${branch} &> /dev/null
+  local remote_branch
+  if [ -z "${branch}" ]; then
+    # Assume caller passed in remote/branch.
+    remote_branch="${remote}"
+  else
+    remote_branch="${remote}/${branch}"
+  fi
+
+  git show-branch "refs/remotes/${remote_branch}" &> /dev/null
 }
 
+# Prints the tracking aka upstream branch.
 git_tracking_branch () {
   git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null
 }
@@ -66,6 +106,20 @@ git_tracking_branch_safe () {
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# Note that Git resolves symlinks, e.g., what cd'ing to project root
+# and running `realpath .`, `readlink -f .`, or `pwd -P` would show.
+git_project_root () {
+  # Same output as `git root`.
+  git rev-parse --show-toplevel
+}
+
+# Print empty string if at project root;
+# print '../'-concatenated path to project root;
+# or git prints to stderr if not a Git project.
+git_parent_path_to_project_root () {
+  git root -r | sed "s#\([^/]\+\)#..#g"
+}
 
 # Check that the current directory exists in a Git repo.
 git_insist_git_repo () {
@@ -98,9 +152,29 @@ git_insist_pristine () {
   local projpath="${1:-$(pwd)}"
 
   >&2 echo
-  >&2 echo "ERROR: Project working directory not tidy! Try:"
+  >&2 echo "ERROR: Working directory not tidy."
+  >&2 echo "- HINT: Try:"
   >&2 echo
-  >&2 echo "   cd ${projpath} && git status"
+  >&2 echo "   cd \"${projpath}\" && git status"
+  >&2 echo
+
+  return 1
+}
+
+git_nothing_staged () {
+  git diff --cached --quiet
+}
+
+git_insist_nothing_staged () {
+  ! git_nothing_staged || return 0
+
+  local projpath="${1:-$(pwd)}"
+
+  >&2 echo
+  >&2 echo "ERROR: Working directory has staged changes."
+  >&2 echo "- HINT: Try:"
+  >&2 echo
+  >&2 echo "   cd \"${projpath}\" && git status"
   >&2 echo
 
   return 1
@@ -110,6 +184,7 @@ git_insist_pristine () {
 
 git_versions_tagged_for_commit () {
   local hash="$1"
+
   if [ -z "${hash}" ]; then
     hash="$(git_HEAD_commit_sha)"
   fi
