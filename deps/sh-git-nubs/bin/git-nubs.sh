@@ -95,9 +95,19 @@ git_remote_branch_exists () {
   git show-branch "refs/remotes/${remote_branch}" &> /dev/null
 }
 
+git_remote_default_branch () {
+  local remote="$1"
+
+  git remote show ${remote} | grep 'HEAD branch' | cut -d' ' -f5
+}
+
 # Prints the tracking aka upstream branch.
 git_tracking_branch () {
   git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null
+}
+
+git_upstream () {
+  git_tracking_branch
 }
 
 git_tracking_branch_safe () {
@@ -178,6 +188,38 @@ git_insist_nothing_staged () {
   >&2 echo
 
   return 1
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# A few ideas to check for valid SHA1 object.
+#
+#   # Check that reference resolves to a commit.
+#   test "$(git cat-file -t "${ref_name}")" == commit
+#
+#   # Check that a reference is valid, printing on error only, e.g.,
+#   #   fatal: Not a valid object name {}
+#   git cat-file -e "${ref_name}^{commit}" > /dev/null
+#
+#   # Check valid ref, printing on success only (the resolved SHA1).
+#   [ -z "$(git rev-parse -q --verify "${ref_name}^{commit}")" ]
+#
+# https://stackoverflow.com/questions/18515488/
+#   how-to-check-if-the-commit-exists-in-a-git-repository-by-its-sha-1
+#
+# This is similar to checking a ref name by type of object, e.g.,
+#
+#   git show-ref --verify --quiet refs/heads/${ref_name}
+#   git show-ref --verify --quiet refs/remotes/${ref_name}
+#   git show-ref --verify --quiet refs/tags/${ref_name}
+#
+# except that it works on a SHA1, and this check won't tell us the
+# object type. It only validates if the object name is valid or not.
+
+git_is_valid_ref () {
+  local gitref="$1"
+
+  [ -n "$(git rev-parse --verify --quiet "${gitref}^{commit}")" ]
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
