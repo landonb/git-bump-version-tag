@@ -8,7 +8,11 @@
 git_branch_exists () {
   local branch_name="$1"
 
-  git show-ref --verify --quiet refs/heads/${branch_name}
+  # Hrmm, you'd think this would not print:
+  #   git rev-parse --verify --quiet HEAD
+  # This works, but technically we should use rev-parse:
+  #  git show-ref --verify --quiet refs/heads/${branch_name}
+  git rev-parse --verify refs/heads/${branch_name} > /dev/null 2>&1
 }
 
 git_branch_name () {
@@ -52,22 +56,43 @@ git_HEAD_commit_sha () {
   git rev-parse HEAD
 }
 
+# BWARE: If the arg. is a valid SHA format, git-rev-parse echoes
+# it without checking if object actually exists.
 git_commit_object_name () {
-  git rev-parse "${1:-HEAD}"
+  local gitref="${1:-HEAD}"
+  local opts="$2"
+
+  git rev-parse ${opts} "${gitref}"
 }
 
+git_object_is_commit () {
+  [ "$(git cat-file -t "$1" 2> /dev/null)" = "commit" ]
+}
+
+# Use --first-parent to stick to commits in the branch you're on, and
+# not to consider a feature branch you merged that maybe (a rare case)
+# derived from a parentless commit, in which case rev-list would output
+# more than one commit object. (Oddly, my landonb/homefries.git project
+# has such a case early in its history.)
 git_first_commit_sha () {
-  git rev-list --max-parents=0 HEAD
+  git rev-list --max-parents=0 --first-parent HEAD
 }
 
 git_first_commit_message () {
-  git --no-pager log --format=%s --max-parents=0 HEAD
+  git --no-pager log --format=%s --max-parents=0 --first-parent HEAD
 }
 
 git_latest_commit_message () {
   git --no-pager log --format=%s -1 "${1:-HEAD}"
 }
 
+git_child_of () {
+  git --no-pager log --reverse --ancestry-path --format='%H' ${1}..HEAD \
+    | head -1
+}
+
+# See also git-extra's git-count, which counts to HEAD, and with --all
+# print counts per author.
 git_number_of_commits () {
   local gitref="${1:-HEAD}"
 
@@ -81,10 +106,26 @@ git_remote_exists () {
 }
 
 git_remote_branch_exists () {
+  local remote_branch="$(print_remote_branch_unambiguous "${1}" "${2}")"
+
+  # SHOWS: [branchname] <most recent commit message>
+  git show-branch "${remote_branch}" &> /dev/null
+}
+
+git_remote_branch_object_name () {
+  local remote_branch="$(print_remote_branch_unambiguous "${1}" "${2}")"
+
+  # SHOWS: SHA1
+  git rev-parse "${remote_branch}" 2> /dev/null
+}
+
+# Prints refs/remotes/<remote>/<branch>.
+print_remote_branch_unambiguous () {
   local remote="$1"
   local branch="$2"
 
-  local remote_branch
+  local remote_branch=""
+
   if [ -z "${branch}" ]; then
     # Assume caller passed in remote/branch.
     remote_branch="${remote}"
@@ -92,13 +133,19 @@ git_remote_branch_exists () {
     remote_branch="${remote}/${branch}"
   fi
 
-  git show-branch "refs/remotes/${remote_branch}" &> /dev/null
+  printf "refs/remotes/${remote_branch}"
 }
 
 git_remote_default_branch () {
   local remote="$1"
 
   git remote show ${remote} | grep 'HEAD branch' | cut -d' ' -f5
+}
+
+git_tag_exists () {
+  local tag_name="$1"
+
+  git rev-parse --verify refs/tags/${tag_name} > /dev/null 2>&1
 }
 
 # Prints the tracking aka upstream branch.
@@ -127,8 +174,15 @@ git_project_root () {
 # Print empty string if at project root;
 # print '../'-concatenated path to project root;
 # or git prints to stderr if not a Git project.
-git_parent_path_to_project_root () {
-  git root -r | sed "s#\([^/]\+\)#..#g"
+print_parent_path_to_project_root () {
+  local depth_path="$(git root -r)"
+  # SPIKE/2022-12-11: Confirm this is what I see:
+  # - ✓ `git root -r` returns empty string @linux.
+  # - ? On @macOS, does it return '.'?
+  ( [ "${depth_path}" = "." ] || [ "${depth_path}" = "" ] ) \
+    && return 0 || true
+
+  printf $"{depth_path}" | sed "s#\([^/]\+\)#..#g"
 }
 
 # Check that the current directory exists in a Git repo.
@@ -347,7 +401,7 @@ git_since_git_init_commit_epoch_ts () {
   git --no-pager \
     log -1 \
     --format=%at \
-    "$(git rev-list --max-parents=0 HEAD | tail -1)" \
+    "$(git_first_commit_sha)" \
     2> /dev/null
 }
 
