@@ -52,9 +52,27 @@ git_branch_name_full () {
   git rev-parse --symbolic-full-name HEAD
 }
 
-git_HEAD_commit_sha () {
-  git rev-parse HEAD
+git_check_branch_name () {
+  git check-ref-format --branch "$1"
 }
+
+# ***
+
+# Prints the tracking aka upstream branch.
+git_tracking_branch () {
+  git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null
+}
+
+git_upstream () {
+  git_tracking_branch
+}
+
+git_tracking_branch_safe () {
+  # Because errexit, fallback on empty string.
+  git_tracking_branch || echo ''
+}
+
+# ***
 
 # BWARE: If the arg. is a valid SHA format, git-rev-parse echoes
 # it without checking if object actually exists.
@@ -65,8 +83,49 @@ git_commit_object_name () {
   git rev-parse ${opts} "${gitref}"
 }
 
-git_object_is_commit () {
-  [ "$(git cat-file -t "$1" 2> /dev/null)" = "commit" ]
+# There are a few ways to find the object name (SHA) for a tag:
+#
+#   git rev-parse refs/tags/sometag
+#   git rev-parse --tags=*some/tag
+#   git show-ref --tags
+#
+# Per `man git-rev-parse` --tags appends "/*" if search doesn't include glob
+# character (*?[), making it a prefix match -- and also making it *not* match
+# what you're trying to search, which seems like a weird interface choice.
+# - E.g., searching for some/tag:
+#     git rev-parse --tags=some/tag
+#   won't actually match some/tag. It will match some/tag/name.
+#   - To match some/tag, you have to glob it explicitly, e.g.,
+#       git rev-parse --tags=*some/tag
+#       git rev-parse --tags=some/tag*
+#       git rev-parse --tags=[s]ome/tag
+#   - But there's no way to make an exact tag name match using --tags.
+#     - Which I guess is Git nudging you to use refs/tags/.
+# Note the UX differences between using refs/tags/ vs. --tags:
+# - If not found, refs/tags reprints argument, "ambiguous argument" message,
+#   and exits nonzero. --tags prints nothing and exits zero.
+#   - Here we mimic --tags.
+git_tag_object_name () {
+  local gitref="$1"
+  local opts="$2"
+
+  [ -n "${gitref}" ] || return 0
+
+  local says_git=""
+  says_git="$(git rev-parse ${opts} refs/tags/${gitref} 2> /dev/null)"
+  [ $? -ne 0 ] || echo "${says_git}"
+}
+
+git_tag_exists () {
+  local tag_name="$1"
+
+  git rev-parse --verify refs/tags/${tag_name} > /dev/null 2>&1
+}
+
+# ***
+
+git_HEAD_commit_sha () {
+  git rev-parse HEAD
 }
 
 # Use --first-parent to stick to commits in the branch you're on, and
@@ -74,7 +133,7 @@ git_object_is_commit () {
 # derived from a parentless commit, in which case rev-list would output
 # more than one commit object. (Oddly, my landonb/homefries.git project
 # has such a case early in its history.)
-git_first_commit_sha () {
+git_first_commit_sha () {  # aka git_root_commit_sha, perhaps
   git rev-list --max-parents=0 --first-parent HEAD
 }
 
@@ -91,6 +150,30 @@ git_child_of () {
     | head -1
 }
 
+# Some obvious and non-obvious ways to get the parent to a commit:
+#   git rev-parse $1^
+#   git --no-pager log --pretty=%P -n 1 $1
+#   git cat-file -p $1 | grep -e "^parent " | awk '{ print $2 }'
+# - If given first commit (or first-commit^):
+#   - git-rev-parse echos query and prints message to stderr.
+#   - git-log prints nothing.
+#   - git-cat-file prints commit meta without parent line,
+#     so awk prints nothing.
+#   Note that git-rev-parse is the least best choice, if you want to
+#   just not print anything if no parent -- it not only prints a long
+#   error message, but it echoes the query back to stdout, so you'd have
+#   to store the query, test $?, then print the query if not an error.
+#   - Of the other two, git-log's error message when the commit object is
+#     unknown is 3 lines long and super not helpful: it spends 2 lines
+#     telling you to use '--' to separate paths, and the first line leads
+#     with the confusing "fatal: ambiguous argument". Or at least it's
+#     confusing to me, like, "What's 'ambiguous'? Oh, it's the object ref.
+#     that's not a real object." Which is why I like cat-file's error the
+#     best: "fatal: Not a valid object name 'foo'".
+git_parent_of () {
+  git cat-file -p $1 | grep -e "^parent " | awk '{ print $2 }'
+}
+
 # See also git-extra's git-count, which counts to HEAD, and with --all
 # print counts per author.
 git_number_of_commits () {
@@ -99,6 +182,8 @@ git_number_of_commits () {
   git rev-list --count "${gitref}"
 }
 
+# ***
+
 git_remote_exists () {
   local remote="$1"
 
@@ -106,21 +191,21 @@ git_remote_exists () {
 }
 
 git_remote_branch_exists () {
-  local remote_branch="$(print_remote_branch_unambiguous "${1}" "${2}")"
+  local remote_branch="$(_git_print_remote_branch_unambiguous "${1}" "${2}")"
 
   # SHOWS: [branchname] <most recent commit message>
   git show-branch "${remote_branch}" &> /dev/null
 }
 
 git_remote_branch_object_name () {
-  local remote_branch="$(print_remote_branch_unambiguous "${1}" "${2}")"
+  local remote_branch="$(_git_print_remote_branch_unambiguous "${1}" "${2}")"
 
-  # SHOWS: SHA1
+  # Prints SHA1.
   git rev-parse "${remote_branch}" 2> /dev/null
 }
 
 # Prints refs/remotes/<remote>/<branch>.
-print_remote_branch_unambiguous () {
+_git_print_remote_branch_unambiguous () {
   local remote="$1"
   local branch="$2"
 
@@ -133,7 +218,7 @@ print_remote_branch_unambiguous () {
     remote_branch="${remote}/${branch}"
   fi
 
-  printf "refs/remotes/${remote_branch}"
+  printf "refs/remotes/$(echo "${remote_branch}" | sed 's#^refs/remotes/##')"
 }
 
 git_remote_default_branch () {
@@ -142,24 +227,71 @@ git_remote_default_branch () {
   git remote show ${remote} | grep 'HEAD branch' | cut -d' ' -f5
 }
 
-git_tag_exists () {
-  local tag_name="$1"
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-  git rev-parse --verify refs/tags/${tag_name} > /dev/null 2>&1
+# MEH/2022-12-16: This seems like a problem that's likely been solved
+# many times before: Given a remote branch name, how to parse out the
+# remote name and parse out the branch name. But I don't know of any
+# solutions, and a quick search didn't enlighten me, so I baked my own.
+
+# The `dirname` or upstream branch references (aka rootname).
+git_upstream_parse_remote_name () {
+  # echo "$1" | sed 's/\/.*$//'
+  # echo "$1" | sed -E 's#^(refs/remotes/)?([^/]+)/.*$#\2#'
+  # echo "$1" | sed 's#^refs/remotes/##' | sed 's/\/.*$//'
+  git_upstream_parse_names true false "$@"
 }
 
-# Prints the tracking aka upstream branch.
-git_tracking_branch () {
-  git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null
+# The `basename` or upstream branch references (aka rootless).
+git_upstream_parse_branch_name () {
+  # echo "$1" | sed 's/^[^\/]*\///'
+  # echo "$1" | sed -E 's#^(refs/remotes/)?[^/]+/##'
+  # echo "$1" | sed 's#^refs/remotes/##' | sed 's/^[^\/]*\///'
+  git_upstream_parse_names false true "$@"
 }
 
-git_upstream () {
-  git_tracking_branch
+git_upstream_parse_names () {
+  local print_remote="${1:-false}"
+  local print_branch="${2:-false}"
+  local upstream_ref="$3"
+
+  local deprefixed="$(echo "${upstream_ref}" | sed 's#^refs/remotes/##')"
+  local remote_name="$(_git_parse_path_rootname "${deprefixed}")"
+  local branch_name="$(_git_parse_path_rootless "${deprefixed}")"
+
+  # ***
+
+  if [ "${remote_name}" = "refs" ]; then
+    >&2 echo "ERROR: Cannot parse non-remotes refs/ upstream reference: ${upstream_ref}"
+
+    return 1
+  fi
+
+  # If one, then both, so say we all.
+  # - These tests cover inputs like "foo" and "bar/".
+  if false\
+    || [ -z "${remote_name}" ] \
+    || [ -z "${branch_name}" ] \
+    || [ "${remote_name}" = "${deprefixed}" ] \
+    || [ "${branch_name}" = "${deprefixed}" ]; \
+  then
+    return 0
+  fi
+
+  # ***
+
+  ! ${print_remote} || printf "${remote_name}"
+  ! ${print_branch} || printf "${branch_name}"
 }
 
-git_tracking_branch_safe () {
-  # Because errexit, fallback on empty string.
-  git_tracking_branch || echo ''
+# The other opposite of `dirname`, `rootname`.
+_git_parse_path_rootname () {
+  echo "$1" | sed 's#/.*$##'
+}
+
+# The other opposite of `basename`, something progenitor? `progname`?
+_git_parse_path_rootless () {
+  echo "$1" | sed 's#^[^/]*/##'
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -274,6 +406,10 @@ git_is_valid_ref () {
   local gitref="$1"
 
   [ -n "$(git rev-parse --verify --quiet "${gitref}^{commit}")" ]
+}
+
+git_object_is_commit () {
+  [ "$(git cat-file -t "$1" 2> /dev/null)" = "commit" ]
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
