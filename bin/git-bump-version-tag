@@ -114,11 +114,8 @@ print_tag_delete_hints () {
   local remote_name="$2"
 
   >&2 echo "- To delete the local tag, try:"
-  #>&2 echo
   >&2 echo "    git tag --delete ${headvers}"
-  #>&2 echo
   >&2 echo "- To delete the remote tag, try:"
-  #>&2 echo
   >&2 echo "    git push ${remote_name} :refs/tags/${headvers}"
 }
 
