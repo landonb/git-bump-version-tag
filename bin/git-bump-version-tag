@@ -39,12 +39,11 @@ DRY_RUN=${DRY_RUN:-false}
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 source_deps () {
+  # Optional: 'pep440cmp'.
+  # https://github.com/hotoffthehamster/pep440-version-compare-cli
+
   # Ensure coreutils installed (from Linux pkg. mgr., or from macOS Homebrew).
   insist_cmd 'realpath'
-
-  # Ensure pep440cmp installed.
-  # https://github.com/hotoffthehamster/pep440-version-compare-cli
-  insist_cmd 'pep440cmp'
 
   # Load ask_yesnoskip.
   # https://github.com/landonb/sh-ask-yesnoskip
@@ -234,12 +233,33 @@ insist_next_version_gt_curr_version () {
   local next_version="$1"
   local curr_version="$2"
 
-  pep440cmp "${next_version}" gt "${curr_version}" > /dev/null && return
+  # Optional: 'pep440cmp'
+  if ! command -v pep440cmp > /dev/null; then
+    >&2 "ALERT: Cannot verify next version greater than current version."
+    >&2 "- Please install pep440cmp, e.g.,"
+    >&2 "    pipx install pep440-version-compare-cli"
+    >&2 "- CXREF:"
+    >&2 "    https://github.com/hotoffthehamster/pep440-version-compare-cli"
 
-  >&2 echo "ERROR: Desired version not greater than current version!"
-  >&2 echo "  “${next_version}” !> “${curr_version}”"
+    return 0
+  fi
 
-  exit 1
+  local is_newer_version=true
+  pep440cmp "${next_version}" gt "${curr_version}" > /dev/null \
+    || is_newer_version=false
+
+  if ! ${is_newer_version}; then
+    if ! ${ACTION_DELETE}; then
+      >&2 echo "ERROR: Desired version not greater than current version!"
+      >&2 echo "  “${next_version}” !> “${curr_version}”"
+
+      exit 1
+    fi
+
+    >&2 echo
+    >&2 echo "ALERT: You are deleting a version older than the current version!"
+    >&2 echo
+  fi
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
