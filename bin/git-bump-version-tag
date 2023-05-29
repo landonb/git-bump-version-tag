@@ -260,13 +260,13 @@ parse_args_for_delete () {
 
 git_tvp_confirm_next () {
   local version_tag="$1"
-  local prevvers="$2"
+  local curr_version="$2"
 
   # ${DRY_RUN} && return
 
-  [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
+  [ -n "${curr_version}" ] && curr_version="“${curr_version}” → "
 
-  local msg="Okay to bump ${prevvers}“${version_tag}”"
+  local msg="Okay to bump ${curr_version}“${version_tag}”"
   local the_choice
 
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
