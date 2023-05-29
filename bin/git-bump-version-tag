@@ -5,11 +5,6 @@
 # Copyright © 2020 Landon Bouma. All rights reserved.
 # License: MIT. Please find more in the LICENSE file.
 
-# YOU: Uncomment (or set from environment) for a dry run:
-#  GIT_TVP_DRY=true
-
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
 # FIXME/2020-07-01: Handle this error better: If there's no tracking branch,
 # you'll see, e.g.,
 #   $ git bump p
@@ -37,7 +32,9 @@
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-GIT_TVP_DRY=${GIT_TVP_DRY:-false}
+# YOU: Uncomment (or set from environment) for a dry run:
+#  DRY_RUN=true
+DRY_RUN=${DRY_RUN:-false}
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -289,7 +286,7 @@ git_tvp_confirm_next () {
   local nextvers="$1"
   local prevvers="$2"
 
-  # ${GIT_TVP_DRY} && return
+  # ${DRY_RUN} && return
 
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
 
@@ -317,7 +314,7 @@ git_tvp_confirm_delete () {
 
 git_tvp_confirm_push () {
   local nextvers="$1"
-  # ${GIT_TVP_DRY} && return
+  # ${DRY_RUN} && return
   local msg="Okay to push “${nextvers}”"
   local the_choice
 
@@ -329,7 +326,7 @@ git_tvp_confirm_push () {
 }
 
 echo_or_eval () {
-  ${GIT_TVP_DRY} && echo "$@" || eval "$@"
+  ${DRY_RUN} && echo "$@" || eval "$@"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -410,7 +407,7 @@ git_tvp_tag_vers_push () {
 
   local headvers="$(git_branch_head_version)"
 
-  ${GIT_TVP_DRY} && echo "# TEST AHOY!"
+  ${DRY_RUN} && echo "# TEST AHOY!"
 
   # We don't need the remote to exist; we can still tag the local branch.
   # SKIP:
