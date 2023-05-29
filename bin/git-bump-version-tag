@@ -36,11 +36,138 @@
 #  DRY_RUN=true
 DRY_RUN=${DRY_RUN:-false}
 
+BUMP_PRERELEASE_BASE="${BUMP_PRERELEASE_BASE:--alpha.}"
+
+BUMP_REMOTE_BRANCH_NAME="${BUMP_REMOTE_BRANCH_NAME:-release}"
+
+BUMP_VERBATIM="${BUMP_VERBATIM:-false}"
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+USAGE="\
+USAGE: $(basename "$0") [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
+
+OPTIONS: One or more of:
+
+  [s|-s|same
+  |d|-d|delete
+  |M|-M|major
+  |m|-m|minor
+  |p|-p|patch
+  |a|-a|alpha
+  |v|-v|v-pre
+  |V|-V|v-del]
+
+- s, -s, same    Use current version (don't bump)
+                 - Useful if you only tagged locally,
+                   and would like to push that tag now
+
+- d, -d, delete  Delete latest version tag (local and remote)
+                 - Useful if you messed up — but it's on you to ensure it's
+                   not too late to delete a tag you previously published!
+
+- M, -M, major   Bump major version by one
+
+- m, -m, minor   Bump minor version by one
+
+- p, -p, patch   Bump patch version by one
+
+- a, -a, alpha   Bump pre-release version by one
+                 - This only works if the pre-release part ends in a number
+                 - Use BUMP_PRERELEASE_BASE to set the default prerelease
+                   value (defaults: ${BUMP_PRERELEASE_BASE})
+                   - E.g., given current version 1.2.3, then
+                       $ git bump major alpha
+                     will create version 2.0.0${BUMP_PRERELEASE_BASE}1
+                   - BUMP_PRERELEASE_BASE is ignored if the previous tag
+                    is already prerelease, and its value is used instead
+
+- v, -v, v-pre   Use \"v\" tag prefix
+                 - Adds v-prefix if previous tag was not v-prefixed
+
+- V, -V, v-del   Remove \"v\" tag prefix
+                 - Removes v-prefix if previous tag was v-prefixed
+
+The \"patch\" option will be assumed if no option is specified
+
+Options can be specified individually or as a classic clump
+- E.g., \`git bump minor alpha\` is the same as \`git bump ma\`
+- Though beware if a clump option matches a known remote name,
+  then it's assumed to be the <REMOTE> argument instead
+  (in which case you cannot use the clump format)
+
+ARGUMENTS:
+
+- <VERSIONTAG>
+            Use this to specify the next version tag explicitly
+            - Useful when versioning for the first time (though
+              bump specifiers will bump from 0, so they work, too)
+            - Useful for specifying a uniquely-named prerelease version
+            - Can be specified with the 'delete' option but is not
+              allowed with any other option
+
+- <REMOTE>  Specify which remote to use
+            - If not specified, will default to the remote specified
+              by the local upstream branch
+            - If local branch does not have an upstream (you can set
+              one via \`git branch -u <remote/branch>\`), uses 'origin'
+            - Specify \"-\" to skip remote tag push altogether.
+            - ALERT: You must use \`--\` before remote name if it
+              could be interpreted as an OPTIONS sequence, or if the
+              remote name is also a valid version
+
+- <COMMIT>  Specify commit to tag, either SHA-1 hash, or \"HEAD\"
+            - If not specified, defaults to remote branch HEAD commit
+            - If \"HEAD\" is specified and git-put-wise is installed,
+              this will tag only the most recent \"non-scoped\" local
+              commit
+              - A non-scoped commit is indicated by a commit message
+                with a specific prefix, either PRIVATE_PREFIX (set to
+                \"${PRIVATE_PREFIX:-PRIVATE: }\") or SCOPING_PREFIX
+                (set to \"${SCOPING_PREFIX:-PROTECTED: }\")
+            - If \"HEAD\", will also push latest commits to remote
+              before tagging.
+
+OVERRIDES: Set these environment variables for alternative behavior:
+
+- BUMP_PRERELEASE_BASE=\"${BUMP_PRERELEASE_BASE}\"
+            Prerelease part prefix, used by a|alpha
+
+- BUMP_REMOTE_BRANCH_NAME=\"${BUMP_REMOTE_BRANCH_NAME}\"
+            Name of remote branch whose HEAD commit will be tagged,
+            if unable to determine the remote branch automatically
+            - By default uses the default branch for the remote for
+              the local upstream branch (i.e., looks for 'HEAD branch'
+              from \`git remote show <remote>\`), and this environ is
+              only used if the default branch is indeterminable
+
+- BUMP_VERBATIM=${BUMP_VERBATIM}
+            If true, applies all patch options in the order encountered
+            - E.g., if not verbatim, then
+                $ git bump Mmp
+              will only bump the largest part (major)
+              - So version 1.2.3 → 2.0.0
+              - But if BUMP_VERBATIM=true, then the version
+                increments 1.2.3 → 2.0.0 → 2.1.0 → 2.1.1
+              - As stated, the options are applied in order, so
+                reversing 'Mmp' to 'pmM' would result in 2.0.0:
+                  $ git bump pmM
+                would bump 1.2.3 → 1.2.4 → 1.3.0 → 2.0.0
+            - Regardless of BUMP_VERBATIM, you are always allowed to mix
+              an alpha bump with any of the other parts (major|minor|patch)
+              - E.g., if at version 1.2.3, you can easily start a new alpha
+                version at 1.2.4-alpha.1, 1.3.0-alpha.1, or 2.0.0-alpha.1
+            - (As an aside, we're unclear BUMP_VERBATIM is very useful)
+"
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 source_deps () {
   # Optional: 'pep440cmp'.
   # https://github.com/hotoffthehamster/pep440-version-compare-cli
+
+  # Need Perl for fancy SemVer regex.
+  insist_cmd 'perl'
 
   # Ensure coreutils installed (from Linux pkg. mgr., or from macOS Homebrew).
   insist_cmd 'realpath'
@@ -52,13 +179,11 @@ source_deps () {
   # Load git_* functions, including
   #   git_branch_name
   #   git_insist_git_repo
-  #   git_insist_pristine
-  #   git_latest_version_tag
+  #   git_largest_version_tag
   #   git_remote_exists
-  #   git_versions_tagged_for_commit
   #   github_purge_release_and_tags_of_same_name;
-  # and load environs, including GITSMART_RE_VERSPARTS.
-  # https://github.com/landonb/sh-git-nubs
+  # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
+  # CXREF: https://github.com/landonb/sh-git-nubs
   . "$(dirname "$(realpath "$0")")/../deps/sh-git-nubs/bin/git-nubs.sh"
 }
 
@@ -74,49 +199,44 @@ insist_cmd () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-git_branch_head_version () {
-  commits_vtags="$(git_versions_tagged_for_commit)"
+print_git_remote_default_branch_name () {
+  local remote_name="$1"
 
-  [ -z "${commits_vtags}" ] && return
+  local branch_names num_branches remote_branch
 
-  local n_tags=$(echo "${commits_vtags}" | wc -l)
+  # If remote only has one branch, use it.
+  branch_names="$(git branch -a --list "${remote_name}/*")"
+  num_branches="$(echo "${branch_names}" | wc -l)"
 
-  if [ "${n_tags}" -ne 1 ]; then
-    >&2 echo "ERROR: Expected no more than 1 but found ${n_tags} version tags on HEAD."
+  if [ ${num_branches} -eq 0 ]; then
+    >&2 echo "ERROR: No local branches found for remote '${remote_name}'." \
+      "Perhaps you need to fetch?"
+
     exit 1
   fi
 
-  echo -n "${commits_vtags}"
-}
+  if [ ${num_branches} -eq 1 ]; then
+    remote_branch="$(echo "${branch_names}" | sed 's#^.*/##')"
+  else
+    # Note that git_remote_default_branch is a network call (git remote show),
+    # so we try to avoid it. Above, we checked if remote only has one branch.
+    # Here we know there are multiple branches.
+    # - One last resort to avoid network call: Check environ "config" value.
+    branch_names="$(git branch -a --list "${remote_name}/${BUMP_REMOTE_BRANCH_NAME}")"
+    if [ -n "${branch_names}" ]; then
+      remote_branch="$(echo "${branch_names}" | sed 's#^.*/##')"
+    else
+      # ALERT: Network call.
+      remote_branch="$(git_remote_default_branch "${remote_name}")"
+    fi
+  fi
 
-must_head_unversioned_or_matching () {
-  local headvers="$1"
-  local curr_version="$2"
-  local remote_name="$3"
+  # Shouldn't happen, we assume.
+  [ -z "${remote_branch}" ] \
+    && >&2 echo "FATAL: Where's remote branch?" \
+    && exit 1
 
-  [ -z "${headvers}" ] && return
-
-  [ "${headvers}" = "${curr_version}" ] && return
-
-  # MAYBE/2020-03-23 21:50: Allow this use case?
-  # - And do what? Replace tag with different version?
-  # Seems like an unlikely use case, actually.
-  >&2 echo "ERROR: HEAD already version-tagged “${headvers}”"
-  #>&2 echo
-
-  print_tag_delete_hints "${headvers}" "${remote_name}"
-
-  exit 1
-}
-
-print_tag_delete_hints () {
-  local head_version="$1"
-  local remote_name="$2"
-
-  >&2 echo "- To delete the local tag, try:"
-  >&2 echo "    git tag --delete ${head_version}"
-  >&2 echo "- To delete the remote tag, try:"
-  >&2 echo "    git push ${remote_name} :refs/tags/${head_version}"
+  printf "%s" "${remote_branch}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -139,89 +259,369 @@ warn_remote_absent () {
   >&2 echo "ALERT: No remote named “${remote_name}”"
 }
 
+# Some CI workflows might version tag automatically,
+# so periodically fetch to try to ensure up to date.
+# - We could fetch every time, but this is a network
+#   operation, and sometimes you're too in the zone
+#   to be bothered.
+# - MAYBE: Is there a better approach to gating `fetch`?
+periodically_fetch () {
+  local remote_name="$1"
+
+  BUMP_CONFIG_SECTION="tools.git-bump-version-tag"
+  BUMP_CONFIG_LAST_FETCH="lastfetch"
+
+  local last_update="$(git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH})"
+
+  local do_fetch=true
+  if [ -n "${last_update}" ]; then
+    if [ ${last_update} -gt $(date -d '-1 hour' +'%s') ]; then
+      do_fetch=false
+    fi
+  fi
+  
+  if ${do_fetch}; then
+    # We could `git fetch "${remote_name}" --tags` get tags only,
+    # but should update default branch, too.
+    git fetch "${remote_name}"
+
+    git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH} "$(date +%s)"
+  fi
+}
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 latest_version_parts () {
   local curr_version="$1"
 
-  declare -a partsarr
+  # Note the '!' in '\1!', so that `read` parses the string correctly when
+  # there is no v-prefix (i.e., ensure there's a word there for `read`).
+  # - Use perl, not sed, because there's a Perl-only .*? non-greedy in the regex.
+  partsstr="$(
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
+  )"
 
-  partsarr=($(echo "${curr_version}" | /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
-
-  echo "${partsarr[@]}"
+  echo "${partsstr}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-resolve_version_next () {
+must_resolve_new_version_tag () {
   local curr_version="$1"
-  local part_or_version="$2"
-  local version_tag
+  shift
 
-  if echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null; then
-    # A version. Compare against latest.
-    insist_next_version_gt_curr_version "${part_or_version}" "${curr_version}"
-    version_tag="${part_or_version}"
-  else
-    version_tag="$(resolve_version_bump "${curr_version}" "${part_or_version}")"
-    [ $? -ne 0 ] && exit 1
-  fi
-
-  echo "${version_tag}"
+  # Sets VERSION_TAG and ACTION_DELETE,
+  # and maybe REMOTE_NAME, and/or TAG_COMMIT.
+  resolve_version_bump "${curr_version}" "$@"
 }
 
 # ***
 
 resolve_version_bump () {
   local curr_version="$1"
-  local part_or_version="$2"
-  local partsarr
+  shift
 
-  partsarr="$(latest_version_parts "${curr_version}")"
+  local partsstr
+  partsstr="$(latest_version_parts "${curr_version}")"
 
-  local major minor patch seppa alpha
+  local vprefix major minor patch prerelease finalnum
 
-  IFS=' ' read major minor patch seppa alpha <<< "${partsarr[@]}"
+  IFS=' ' read vprefix major minor patch prerelease finalnum <<< "${partsstr}"
 
-  case "${part_or_version}" in
-    M | -M | ma | major)
-      let 'major += 1'; minor=0; patch=0; seppa=; alpha=;
-      ;;
-    m | -m | mi | minor)
-      let 'minor += 1'; patch=0; seppa=; alpha=;
-      ;;
-    p | -p | pa | patch)
-      let 'patch += 1'; seppa=; alpha=;
-      ;;
-    a | -a | al | alpha)
-      # The alpha part is the only part not guaranteed to be a number.
-      # Note that if no current alpha, must inc. patch to be < current vers.
-      [ -z "${alpha}" ] && let 'patch += 1'
-      let 'alpha += 1' || (>&2 echo "ERROR: Cannot bump non-number alpha part" && exit 1)
-      ;;
-    s | -s | same)
-      ;;
-    d | -d | delete)
-      # This function is called in a subshell, so we'll scan again later to set
-      #  ACTION_DELETE=true.
-      ;;
-    *)
-      >&2 echo "ERROR: Unknown bump part specifier: “${part_or_version}”"
+  # ${DRY_RUN} && echo "read: v:${vprefix} M:${major} m:${minor}" \
+  #   "p:${patch} a:${prerelease} n:${finalnum} (${partsstr})"
+
+  # Strip the '!' from the v-prefix (which was used to support `read`).
+  vprefix="${vprefix%!}"
+
+  local bumped_patch_or_better=false
+  local bmajor=false bminor=false bpatch=false balpha=false
+  local bump_verbatim="${BUMP_VERBATIM:-false}"
+  local bumps_count=0
+
+  add_prefix () {
+    vprefix="v"
+  }
+
+  del_prefix () {
+    vprefix=""
+  }
+
+  bump_bumps_count () {
+    let 'bumps_count += 1'
+  }
+
+  bump_major () {
+    bump_bumps_count
+    ! ${bump_verbatim} && bmajor=true && return
+
+    # Note that if var. unset, the let += 1 sets it to 1.
+    let 'major += 1'; minor=0; patch=0; prerelease=; finalnum=;
+    bumped_patch_or_better=true
+  }
+
+  bump_minor () {
+    bump_bumps_count
+    ! ${bump_verbatim} && bminor=true && return
+
+    let 'minor += 1'; patch=0; prerelease=; finalnum=;
+    bumped_patch_or_better=true
+  }
+
+  bump_patch () {
+    bump_bumps_count
+    ! ${bump_verbatim} && bpatch=true && return
+
+    let 'patch += 1'; prerelease=; finalnum=;
+    bumped_patch_or_better=true
+  }
+
+  # What SemVer calls "pre-release".
+  bump_alpha () {
+    bump_bumps_count
+    ! ${bump_verbatim} && balpha=true && return
+
+    if [ -z "${prerelease}" ]; then
+      # If no current alpha, must bump patch so new version is < current vers.
+      ! ${bumped_patch_or_better} && let 'patch += 1'
+      prerelease="${BUMP_PRERELEASE_BASE:--alpha.}"
+      finalnum="1"
+    else
+      let 'finalnum += 1'
+    fi
+  }
+
+  local skip_opts=0
+  local n_extra_args=0
+
+  VERSION_TAG=""
+  ACTION_DELETE=false
+  REMOTE_NAME=""
+  TAG_COMMIT=""
+
+  local ACTION_SAME=false
+  local VERSION_ARG=""
+
+  while [ -n "$1" ]; do
+    local cur_arg="$1"
+    shift
+
+    if [ ${skip_opts} -gt 0 ]; then
+      if [ ${skip_opts} -eq 1 ]; then
+        if is_known_remote "${cur_arg}"; then
+          skip_opts=2
+
+          REMOTE_NAME="${cur_arg}"
+        elif is_known_commit_sha "${cur_arg}"; then
+          skip_opts=3
+
+          TAG_COMMIT="${cur_arg}"
+        else
+          >&2 echo "ERROR: Expected <REMOTE> or <COMMIT>, not: “${cur_arg}”"
+
+          exit 1
+        fi
+      elif [ ${skip_opts} -eq 2 ]; then
+        skip_opts=3
+
+        if is_known_commit_sha "${cur_arg}"; then
+          TAG_COMMIT="${cur_arg}"
+        else
+          >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
+
+          exit 1
+        fi
+      else
+        # Case: [ ${skip_opts} -ge 3 ]
+        >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
+        >&2 echo "- Or maybe you specified more than one"
+        >&2 echo "   <VERSIONTAG>, <REMOTE>, or <COMMIT>"
+
+        exit 1
+      fi
+    elif [ "${cur_arg}" = '--' ]; then
+      skip_opts=1
+    elif like_a_version "${cur_arg}"; then
+      skip_opts=1
+
+      VERSION_ARG="${cur_arg}"
+    elif is_known_remote "${cur_arg}"; then
+      skip_opts=2
+
+      REMOTE_NAME="${cur_arg}"
+    elif is_known_commit_sha "${cur_arg}"; then
+      skip_opts=3
+
+      TAG_COMMIT="${cur_arg}"
+    else
+      case "${cur_arg}" in
+        s | -s | same)
+          ACTION_SAME=true
+          VERSION_TAG="${curr_version}"
+          ;;
+        d | -d | delete)
+          ACTION_DELETE=true
+          VERSION_TAG="${curr_version}"
+          ;;
+        h | -h | help | --help)
+          >&2 echo "${USAGE}"
+
+          exit 1
+          ;;
+        M | -M | major) bump_major ;;
+        m | -m | minor) bump_minor ;;
+        p | -p | patch) bump_patch ;;
+        a | -a | alpha) bump_alpha ;;
+        v | -v | v-pre) add_prefix ;;
+        V | -V | v-del) del_prefix ;;
+        *)
+          for char in $(echo "${cur_arg#-}" | sed -E -e 's/(.)/\1\n/g'); do
+            case ${char} in
+              s) ACTION_SAME=true;
+                 VERSION_TAG="${curr_version}" ;;
+              d) ACTION_DELETE=true;
+                 VERSION_TAG="${curr_version}" ;;
+              M) bump_major ;;
+              m) bump_minor ;;
+              p) bump_patch ;;
+              a) bump_alpha ;;
+              v) add_prefix ;;
+              V) del_prefix ;;
+              *)
+                >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
+
+                exit 1
+                ;;
+            esac
+          done
+      esac
+    fi
+  done
+
+  if [ -n "${VERSION_TAG}" ]; then
+    # Means 'same' and/or 'delete' specified.
+    if [ ${bumps_count} -gt 0 ]; then
+      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and pick 'same' (s) or delete (d)."
+
       exit 1
-      ;;
-  esac
+    elif ${ACTION_SAME} && [ -n "${VERSION_ARG}" ]; then
+      >&2 echo "ERROR: Cannot indicate 'same' (s), and specify <VERSIONTAG>."
 
-  version_tag="${major:-0}.${minor:-0}"
+      exit 1
+    fi
+  fi
 
-  [ -n "${patch}" ] && version_tag="${version_tag}.${patch}"
+  if [ -n "${VERSION_ARG}" ]; then
+    # Means <VERSIONTAG> specified.
+    if [ ${bumps_count} -gt 0 ]; then
+      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and specify <VERSIONTAG>."
 
-  version_tag="${major:-0}.${minor:-0}.${patch:-0}"
+      exit 1
+    fi
+    # else, we already checked not 'same' and <VERSIONTAG> specified.
+    # - But if 'delete' specified, be sure to delete <VERSIONTAG>.
 
-  [ "${version_tag}" = "0.0.0" ] && version_tag="0.0.1"
+    VERSION_TAG="${VERSION_ARG}"
+  fi
 
-  [ -n "${alpha}" ] && version_tag="${version_tag}${seppa:-a}${alpha}"
+  if [ -z "${VERSION_TAG}" ]; then
+    # Ugh, apologies for such a long if, and long function...
+    if ! ${bump_verbatim}; then
+      bump_verbatim=true
 
-  echo "${version_tag}"
+      # We could let user bump more than one part, e.g.,
+      #
+      #   ${bmajor} && bump_major
+      #   ${bminor} && bump_minor
+      #   ${bpatch} && bump_patch
+      #   ${balpha} && bump_alpha
+      #
+      # but that's what VERBATIM_BUMP=true is for: to let
+      # user specify their own bump recipe, and we play
+      # along.
+      #
+      # But for most users, we'll be strict and assume
+      # they only want to bump on component (like, why
+      # do you want to skip versions? If if that's what
+      # you really want, use VERBATIM_BUMP).
+
+      local warn_too_many=false
+      ${balpha} && let 'bumps_count -= 1'
+      [ ${bumps_count} -gt 1 ] && warn_too_many=true
+
+      bumps_count=0
+
+      local biggest=""
+
+      # Idea here is we only honor bumping single component.
+      if ${bmajor}; then
+        bump_major
+        biggest="major"
+      elif ${bminor}; then
+        bump_minor
+        biggest="minor"
+      elif ${bpatch}; then
+        bump_patch
+        biggest="patch"
+      fi
+
+      # User can always mix alpha bump with any previous bump,
+      # so they can easily create next version alpha release.
+      if ${balpha}; then
+        bump_alpha
+        # We'd never use this `biggest`.
+        #  biggest="prerelease"
+      fi
+
+      if [ ${bumps_count} -eq 0 ]; then
+        # Should be impossible path, because ${part_or_version} defaults 'patch'.
+        >&2 echo "ERROR: Please specify a bump part (M|m|p|a) or choose same (s)."
+
+        exit 1
+      elif ${warn_too_many}; then
+        >&2 echo "WARNING: Only the biggest non-alpha bump option will be used (${biggest})."
+        >&2 echo "- If you want to bump more than one part, toggle \`BUMP_VERBATIM=true\`"
+        # Otherwise don't specify more than one part (and no need to make this
+        # warning message optional).
+      fi
+    fi
+
+    pdot=""
+    [ -z "${patch}" ] || pdot="."
+
+    # ${DRY_RUN} && echo "version_tag: v:${vprefix} M:${major:-0} m:${minor:-0}" \
+    #   "?:${pdot} p:${patch} a:${prerelease} n:${finalnum}"
+    version_tag="${vprefix}${major:-0}.${minor:-0}${pdot}${patch}${prerelease}${finalnum}"
+
+    VERSION_TAG="${version_tag}"
+  fi
+
+  ${DRY_RUN} && echo "VERSION_TAG=${VERSION_TAG}"
+}
+
+like_a_version () {
+  local word="$1"
+
+  echo "${word}" | command grep -q -E "${GITSMART_RE_VERSPARTS}"
+}
+
+is_known_remote () {
+  local word="$1"
+
+  # "-" means skip remote tag push.
+  [ "${word}" = "-" ] && return 0
+
+  git remote get-url "${word}" > /dev/null 2>&1
+}
+
+is_known_commit_sha () {
+  local word="$1"
+
+  [ "${word}" = "HEAD" ] && return 0
+
+  git rev-parse "${word}" 2> /dev/null || return 1
+
+  [[ "$(git rev-parse "${word}")" = "${word}"* ]]
 }
 
 # ***
@@ -261,19 +661,19 @@ insist_next_version_gt_curr_version () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-parse_args_for_delete () {
-  ACTION_DELETE=false
+insist_new_version_semver_compliant () {
+  local version_tag="$1"
 
-  local part_or_version="$1"
+  local semver
 
-  if ! ( echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null ); then
-    case "${part_or_version}" in
-      d | -d | delete)
-        ACTION_DELETE=true
-        ;;
-      *)
-        ;;
-    esac
+  semver="$(
+    perl -ne "print if /${GITSMART_RE_SEMVERSPARTS}/" <<<"${version_tag}"
+  )"
+
+  if [ -z "${semver}" ]; then
+    >&2 echo "ERROR: The new version is not SemVer compliant: ${version_tag}"
+
+    exit 1
   fi
 }
 
@@ -300,9 +700,15 @@ git_tvp_confirm_next () {
 
 git_tvp_confirm_delete () {
   local version_tag="$1"
-  local msg="Okay to delete “${version_tag}”"
-  local the_choice
+  local remote_name="$2"
 
+  local msg="Okay to delete “${version_tag}”"
+
+  if [ -n "${remote_name}" ]; then
+    msg="${msg} from “${remote_name}”"
+  fi
+
+  local the_choice
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
 
   [ $? -ne 0 ] && exit 1
@@ -312,10 +718,11 @@ git_tvp_confirm_delete () {
 
 git_tvp_confirm_push () {
   local version_tag="$1"
-  # ${DRY_RUN} && return
-  local msg="Okay to push “${version_tag}”"
-  local the_choice
+  local remote_name="$2"
 
+  local msg="Okay to push “${version_tag}” to “${remote_name}”"
+
+  local the_choice
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
 
   [ $? -ne 0 ] && exit 1
@@ -331,9 +738,8 @@ echo_or_eval () {
 
 git_tag_local_add () {
   local version_tag="$1"
-  local curr_version="$2"
-
-  ${ACTION_DELETE} && return
+  local tag_commit="$2"
+  local curr_version="$3"
 
   [ "${version_tag}" = "${curr_version}" ] && return
 
@@ -343,22 +749,34 @@ git_tag_local_add () {
   # E.g., we could tag, say, the release branch:
   #   git tag -a ${version_tag} -m "Version: ${version_tag}" "release"
   # but that would probably be confusing to the user. So stick to HEAD.
-  echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag}'"
+
+  echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag#v}'" "${tag_commit}"
 }
 
 git_tag_local_delete () {
   local version_tag="$1"
 
-  ${ACTION_DELETE} || return
-
-  git_tvp_confirm_delete "${version_tag}" || return
+  git_tvp_confirm_delete "${version_tag}" "" || return
 
   echo_or_eval git tag -d "${version_tag}"
 }
 
-git_tag_remote_push () {
+git_tag_remote_delete () {
   local version_tag="$1"
   local remote_name="$2"
+
+  git_tvp_confirm_delete "${version_tag}" "${remote_name}" || return
+
+  echo_or_eval git push "${remote_name}" ":refs/tags/${version_tag}"
+}
+
+git_tag_remote_push () {
+  local version_tag="$1"
+  local tag_commit="$2"
+  local remote_name="$3"
+  local remote_branch="$4"
+  local skip_push_branch="$5"
+  local skip_push_tag="$6"
 
   must_remote_exists "${remote_name}"
 
@@ -368,7 +786,7 @@ git_tag_remote_push () {
   # Network call!
   R2G2P_REMOTE="${remote_name}" \
   RELEASE_VERSION="${version_tag}" \
-  R2G2P_COMMIT="$(git rev-parse HEAD)" \
+  R2G2P_COMMIT="${tag_commit}" \
   R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
     github_purge_release_and_tags_of_same_name
   #
@@ -379,13 +797,155 @@ git_tag_remote_push () {
   # delete command.
   ${ACTION_DELETE} && return
 
-  git_tvp_confirm_push "${version_tag}" || return
+  git_tvp_confirm_push "${version_tag}" "${remote_name}" || return
 
-  # NOTE: This'll push both commit and tag, as necessary.
-  #       - And GitHub will make a release object, too.
-  local branch="$(git_branch_name)"
+  # If user specified "HEAD" <COMMIT>, push that, too.
+  # - Otherwise we're tagging the current remote branch HEAD,
+  #   so this push would be meaningless (wasted network call).
+  # - By pushing to ${remote_branch}, we ensure that user can
+  #   work on that branch locally, tag it, and then push both
+  #   the branch commit and the tag simultaneously (we don't
+  #   require user to push branch themselves before bumping).
+  #   - Note that we previously bailed if ${remote_branch} is
+  #     not the same as the local branch.
+  if ! "${skip_push_branch}"; then
+    echo_or_eval git push "${remote_name}" "${tag_commit}:refs/heads/${remote_branch}"
+  fi
 
-  echo_or_eval git push "${remote_name}" "${branch}" "refs/tags/${version_tag}"
+  # Note that GitHub automatically creates a release for the tag,
+  # but it'll be replaced after your CI runs and creates a proper
+  # release (well, assuming you have a release workflow tied to a
+  # version tag event).
+  if ! "${skip_push_tag}"; then
+    echo_or_eval git push "${remote_name}" "refs/tags/${version_tag}"
+  fi
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+git_smallest_version_tag () {
+  local since_commit="$1"
+
+  local smallest_patch="$( \
+    git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*" \
+      | command grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | command sort -V \
+      | command head -n1
+  )"
+
+  # This is *ridonkulous*.
+  local smallest_including_alpha="$( \
+    git tag -l --contains "${since_commit}" "${smallest_patch}*" "v${smallest_patch}*" \
+      | command grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | command grep -E -v "^${smallest_patch}$" \
+      | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \1\2.\3.\5\6\7/" \
+      | command sort -k1,1 -k2,2n \
+      | command head -n1 \
+      | command sed -E "s/^[^,]*, [^,]*, //"
+  )"
+
+  local smallest_version="${smallest_including_alpha}"
+  [ -n "${smallest_version}" ] || smallest_version="${smallest_patch}"
+
+  printf "%s" "${smallest_version}"
+}
+
+insist_prev_version_lt_later_version () {
+  local prev_version="$1"
+  local later_version="$2"
+  local tag_commit="$3"
+
+  if [ -z "${later_version}" ]; then
+    return 0
+  fi
+
+  # 'pep440cmp' is optional, but we can do this without it.
+
+  local prev_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${prev_version}"
+  )"
+
+  local later_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${later_version}"
+  )"
+
+  if [ "${prev_patch}" != "${later_patch}" ]; then
+    local smaller_patch="$( \
+      echo -e "${prev_patch}\n${later_patch}" \
+        | command sort -V \
+        | command head -n1
+    )"
+
+    if [ "${smaller_patch}" = "${prev_patch}" ]; then
+      return 0
+    fi
+  else
+    local smaller_version="$( \
+      echo -e "${prev_version}\n${later_version}" \
+        | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \1\2.\3.\5\6\7/" \
+        | command sort -k1,1 -k2,2n \
+        | command head -n1 \
+        | command sed -E "s/^[^,]*, [^,]*, //"
+    )"
+
+    if [ "${smaller_version}" = "${prev_version}" ]; then
+      return 0
+    fi
+  fi
+
+  >&2 echo "ERROR: Cannot apply version to older commit larger than later commit."
+  >&2 echo "- Desired version: ${prev_version}"
+  >&2 echo "- Target commit: ${tag_commit}"
+  >&2 echo "- Smallest version since commit: ${later_version}"
+
+  exit 1
+}
+
+insist_prev_version_gt_earlier_version () {
+  local prev_version="$1"
+  local earlier_version="$2"
+  local tag_commit="$3"
+
+  # 'pep440cmp' is optional, but we can do this without it.
+
+  local prev_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${prev_version}"
+  )"
+
+  local earlier_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${earlier_version}"
+  )"
+
+  if [ "${prev_patch}" != "${earlier_patch}" ]; then
+    local smaller_patch="$( \
+      echo -e "${prev_patch}\n${earlier_patch}" \
+        | command sort -V \
+        | command head -n1
+    )"
+
+    if [ "${smaller_patch}" = "${earlier_patch}" ]; then
+      return 0
+    fi
+  else
+    local smaller_version="$( \
+      echo -e "${prev_version}\n${earlier_version}" \
+        | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \1\2.\3.\5\6\7/" \
+        | command sort -k1,1 -k2,2n \
+        | command head -n1 \
+        | command sed -E "s/^[^,]*, [^,]*, //"
+    )"
+
+    if [ "${smaller_version}" = "${earlier_version}" ]; then
+      return 0
+    fi
+  fi
+
+  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier commit."
+  >&2 echo "- Desired version: ${prev_version}"
+  >&2 echo "- Target commit: ${tag_commit}"
+  >&2 echo "- Largest version before commit: ${earlier_version}"
+
+  exit 1
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -411,17 +971,13 @@ git_pop_wip_commit_maybe () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 git_tvp_tag_vers_push () {
-  local part_or_version="${1:-patch}"
-  local remote_name="${2}"
+  # Passed args ($@) from CLI will be passed to and parsed by
+  # must_resolve_new_version_tag.
 
   # Remind user if they're dry-running.
   ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)"
 
   # ***
-
-  # Default to the remote tracking branch remote, or fallback to "origin".
-  [ -z "${remote_name}" ] && remote="$(git_upstream_parse_remote_name)"
-  [ -z "${remote_name}" ] && remote="origin"
 
   # Insist run from within a Git project.
   git_insist_git_repo || exit 1
@@ -431,28 +987,177 @@ git_tvp_tag_vers_push () {
 
   # ***
 
-  local headvers="$(git_branch_head_version)"
+  # Note that git-smart returns the latest version-looking tag.
+  # - It's not guaranteed to be SemVer compliant.
+  local curr_version="$(git_largest_version_tag)"
 
-  # We don't need the remote to exist; we can still tag the local branch.
-  # SKIP:
-  #   must_remote_exists "${remote_name}"
-  warn_remote_absent "${remote_name}"
+  local VERSION_TAG=""
+  local ACTION_DELETE=false
+  local REMOTE_NAME=""
+  local TAG_COMMIT=""
+  # If version specified, fails if not greater than current version.
+  # If bump args specified, fails on args error.
+  must_resolve_new_version_tag "${curr_version}" "$@"
 
-  local curr_version="$(git_latest_version_tag)"
+  # ***
 
-  local version_tag
-  version_tag="$(resolve_version_next "${curr_version}" "${part_or_version}")"
-  [ $? -ne 0 ] && exit 1
+  local remote_name="${REMOTE_NAME}"
 
-  parse_args_for_delete "${part_or_version}"
+  # Unless skipping remote push, warn if no remote; maybe fetch;
+  # and recalculate next version if new version tag was fetched.
+  if [ "${remote_name}" != "-" ]; then
+    # Default to the remote tracking branch remote, or fallback to "origin".
+    [ -z "${remote_name}" ] && remote_name="$(git_upstream_parse_remote_name)"
+    [ -z "${remote_name}" ] && remote_name="origin"
 
-  # Insist HEAD unversioned or matches desired.
-  must_head_unversioned_or_matching "${headvers}" "${curr_version}" "${remote_name}"
+    # We don't need the remote to exist; we can still tag the local branch.
+    # - We could survive without the remote and just tag the local branch.
+    #   - Or we could insist, because this command is more about managing
+    #     to remote tag (e.g., to trigger a CI workflow to make a release).
+    # Don't insist remote exists until :
+    #   must_remote_exists "${remote_name}"
+    warn_remote_absent "${remote_name}"
 
-  git_tag_local_add "${version_tag}" "${curr_version}"
-  git_tag_local_delete "${version_tag}"
+    # Fetch remote at least every hour (network call).
+    periodically_fetch "${remote_name}"
 
-  git_tag_remote_push "${version_tag}" "${remote_name}"
+    local postfetch_curr_version="$(git_largest_version_tag)"
+
+    if [ "${postfetch_curr_version}" != "${curr_version}" ]; then
+      curr_version="${postfetch_curr_version}"
+
+      # We fetched tags from the remote and found a more recent
+      # latest tag, so reapply the bump options to the actual
+      # latest version.
+      must_resolve_new_version_tag "${curr_version}" "$@"
+    fi
+  fi
+
+  if ! ${ACTION_DELETE}; then
+    insist_new_version_semver_compliant "${VERSION_TAG}"
+  fi
+
+  # ***
+
+  # Insist remote/branch HEAD unversioned or matches desired.
+  local remote_branch
+  if [ "${remote_name}" != "-" ]; then
+    remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
+      || exit 1
+  fi
+
+  if ! ${ACTION_DELETE}; then
+    local tag_commit="${TAG_COMMIT}"
+
+    local skip_remote_push_branch=false
+
+    local remote_head_sha
+    if [ "${remote_name}" != "-" ]; then
+      remote_head_sha="$(
+        git_remote_branch_object_name "${remote_name}" "${remote_branch}"
+      )"
+    fi
+
+    if [ -z "${tag_commit}" ]; then
+      if [ "${remote_name}" != "-" ]; then
+        tag_commit="${remote_head_sha}"
+      else
+        tag_commit="HEAD"
+      fi
+    fi
+
+    local local_head_sha="$(git_HEAD_commit_sha)"
+
+    if [ "${tag_commit}" = "HEAD" ]; then
+      if [ "${remote_name}" != "-" ]; then
+        # Ensure branch names match (don't let user accidentally tag and
+        # push wrong branch to remote).
+        local local_branch="$(git_branch_name)"
+
+        if [ "${local_branch}" != "${remote_branch}" ]; then
+          >&2 echo "ERROR: No, I will not push local branch “${local_branch}”" \
+            "to remote branch “${remote_branch}”"
+
+          exit 1
+        fi
+      fi
+
+      tag_commit="${local_head_sha}"
+    fi
+
+    if [ "${remote_name}" != "-" ]; then
+      if [ "${tag_commit}" = "${remote_head_sha}" ]; then
+        # Don't need to push this commit, which is remote branch HEAD.
+        skip_remote_push_branch=true
+      fi
+    fi
+
+    local SKIP_REMOTE_PUSH_TAG=false
+    if [ "${remote_name}" != "-" ]; then
+      if ! ${skip_remote_push_branch}; then
+        # We know ${tag_commit} != ${remote_head_sha} because ${skip_remote_push_branch}.
+        # Check if the local branch has more commits than the remote branch.
+        if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
+          # Local ahead of remote.
+          if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
+            >&2 echo "ERROR: Remote branch HEAD is not ancestor of target commit"
+
+            exit 1
+          fi
+        fi
+        # else, remote ahead of local. Means we're tagging an old commit.
+      fi
+      # else, means we're not moving remote branch HEAD.
+    # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
+    local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+    if [ -n "${commit_version}" ]; then
+      if [ "${commit_version}" != "${VERSION_TAG}" ]; then
+        >&2 echo "ERROR: Commit is already versioned (${commit_version})," \
+          "and different than new version (${VERSION_TAG})"
+
+        exit 1
+      fi
+
+      # So that git_tag_local_add doesn't add same tag again.
+      curr_version="${commit_version}"
+    else
+      if [ "${tag_commit}" = "${local_head_sha}" ]; then
+        insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}"
+      else
+        # Means we're tagging an old commit.
+        # MEH: I don't know why we support this. Maybe I just wanted to
+        #      write hundreds of lines of more code to maintain.
+        # - Seems like a weird use case to support: Tagging old commit.
+
+        local latest_smallest_version
+        # This includes ${tag_commit} tags, but we checked that case
+        # earlier, so we know ${tag_commit} is not versioned here.
+        latest_smallest_version="$(git_smallest_version_tag "${tag_commit}")"
+        insist_prev_version_lt_later_version \
+          "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}"
+
+        local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
+        insist_prev_version_gt_earlier_version \
+          "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
+      fi
+    fi
+
+    # Tag the local commit (returns immediately if already tagged).
+    git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
+
+    if [ "${remote_name}" != "-" ]; then
+      git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
+        "${remote_name}" "${remote_branch}" \
+        "${skip_remote_push_branch}" "${SKIP_REMOTE_PUSH_TAG}"
+    fi
+  else
+    # This is ${ACTION_DELETE}.
+
+    git_tag_local_delete "${VERSION_TAG}"
+    if [ "${remote_name}" != "-" ]; then
+      git_tag_remote_delete "${VERSION_TAG}" "${remote_name}"
+    fi
+  fi
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
