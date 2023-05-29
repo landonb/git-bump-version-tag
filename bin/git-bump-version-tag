@@ -157,18 +157,6 @@ latest_version_parts () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-must_version_gt () {
-  local part_or_version="$1"
-  local curr_version="$2"
-
-  pep440cmp "${part_or_version}" gt "${curr_version}" > /dev/null && return
-
-  >&2 echo "ERROR: Desired version not greater than current version!"
-  >&2 echo "  “${part_or_version}” !> “${curr_version}”"
-
-  exit 1
-}
-
 resolve_version_next () {
   local curr_version="$1"
   local part_or_version="$2"
@@ -238,6 +226,20 @@ resolve_version_bump () {
   [ -n "${alpha}" ] && version_tag="${version_tag}${seppa:-a}${alpha}"
 
   echo "${version_tag}"
+}
+
+# ***
+
+must_version_gt () {
+  local part_or_version="$1"
+  local curr_version="$2"
+
+  pep440cmp "${part_or_version}" gt "${curr_version}" > /dev/null && return
+
+  >&2 echo "ERROR: Desired version not greater than current version!"
+  >&2 echo "  “${part_or_version}” !> “${curr_version}”"
+
+  exit 1
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
