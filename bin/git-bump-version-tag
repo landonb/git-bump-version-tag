@@ -93,7 +93,7 @@ git_branch_head_version () {
 must_head_unversioned_or_matching () {
   local headvers="$1"
   local curr_version="$2"
-  local remote="$3"
+  local remote_name="$3"
 
   [ -z "${headvers}" ] && return
 
@@ -105,14 +105,14 @@ must_head_unversioned_or_matching () {
   >&2 echo "ERROR: HEAD already version-tagged “${headvers}”"
   #>&2 echo
 
-  print_tag_delete_hints "${headvers}" "${remote}"
+  print_tag_delete_hints "${headvers}" "${remote_name}"
 
   exit 1
 }
 
 print_tag_delete_hints () {
   local headvers="$1"
-  local remote="$2"
+  local remote_name="$2"
 
   >&2 echo "- To delete the local tag, try:"
   #>&2 echo
@@ -120,27 +120,27 @@ print_tag_delete_hints () {
   #>&2 echo
   >&2 echo "- To delete the remote tag, try:"
   #>&2 echo
-  >&2 echo "    git push ${remote} :refs/tags/${headvers}"
+  >&2 echo "    git push ${remote_name} :refs/tags/${headvers}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 must_remote_exists () {
-  local remote="$1"
+  local remote_name="$1"
 
-  git_remote_exists "${remote}" && return
+  git_remote_exists "${remote_name}" && return
 
-  >&2 echo "ERROR: No remote named “${remote}”"
+  >&2 echo "ERROR: No remote named “${remote_name}”"
 
   exit 1
 }
 
 warn_remote_absent () {
-  local remote="$1"
+  local remote_name="$1"
 
-  git_remote_exists "${remote}" && return
+  git_remote_exists "${remote_name}" && return
 
-  >&2 echo "ALERT: No remote named “${remote}”"
+  >&2 echo "ALERT: No remote named “${remote_name}”"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -341,15 +341,15 @@ git_tag_local_delete () {
 
 git_tag_remote_delete () {
   local version_tag="$1"
-  local remote="$2"
+  local remote_name="$2"
 
-  must_remote_exists "${remote}"
+  must_remote_exists "${remote_name}"
 
   # (lb): I considerd making the ls-remote call (which, e.g., pings GitHub)
   # to be optional. But it's just as easy to Ctrl-C when the script gets here.
 
   # Network call!
-  R2G2P_REMOTE="${remote}" \
+  R2G2P_REMOTE="${remote_name}" \
   RELEASE_VERSION="${version_tag}" \
   R2G2P_COMMIT="$(git rev-parse HEAD)" \
   R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
@@ -368,7 +368,7 @@ git_tag_remote_delete () {
   #       - And GitHub will make a release object, too.
   local branch="$(git_branch_name)"
 
-  echo_or_eval git push "${remote}" "${branch}" "refs/tags/${version_tag}"
+  echo_or_eval git push "${remote_name}" "${branch}" "refs/tags/${version_tag}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -395,7 +395,7 @@ git_pop_wip_commit_maybe () {
 
 git_tvp_tag_vers_push () {
   local part_or_version="${1:-patch}"
-  local remote="${2}"
+  local remote_name="${2}"
 
   # Remind user if they're dry-running.
   ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)"
@@ -403,8 +403,8 @@ git_tvp_tag_vers_push () {
   # ***
 
   # Default to the remote tracking branch remote, or fallback to "origin".
-  [ -z "${remote}" ] && remote="$(git_upstream_parse_remote_name)"
-  [ -z "${remote}" ] && remote="origin"
+  [ -z "${remote_name}" ] && remote="$(git_upstream_parse_remote_name)"
+  [ -z "${remote_name}" ] && remote="origin"
 
   # Insist run from within a Git project.
   git_insist_git_repo || exit 1
@@ -418,8 +418,8 @@ git_tvp_tag_vers_push () {
 
   # We don't need the remote to exist; we can still tag the local branch.
   # SKIP:
-  #   must_remote_exists "${remote}"
-  warn_remote_absent "${remote}"
+  #   must_remote_exists "${remote_name}"
+  warn_remote_absent "${remote_name}"
 
   local curr_version="$(git_latest_version_tag)"
 
@@ -430,12 +430,12 @@ git_tvp_tag_vers_push () {
   parse_args_for_delete "${part_or_version}"
 
   # Insist HEAD unversioned or matches desired.
-  must_head_unversioned_or_matching "${headvers}" "${curr_version}" "${remote}"
+  must_head_unversioned_or_matching "${headvers}" "${curr_version}" "${remote_name}"
 
   git_tag_local_add "${version_tag}" "${curr_version}"
   git_tag_local_delete "${version_tag}"
 
-  git_tag_remote_delete "${version_tag}" "${remote}"
+  git_tag_remote_delete "${version_tag}" "${remote_name}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
