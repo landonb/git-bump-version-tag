@@ -75,30 +75,6 @@ insist_cmd () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-# Get the name of the remote of the tracking branch.
-# E.g., if the user sets the current branch to track upstream/release, e.g.,
-#   git checkout --track upstream/release
-# or
-#   git push -u upstream release
-# or
-#   git branch -u upstream/release
-# prints the remote name, "upstream".
-# Ref:
-#   Find out which remote branch a local branch is tracking
-#   https://stackoverflow.com/questions/171550/
-#     find-out-which-remote-branch-a-local-branch-is-tracking
-git_tracking_branch_remote () {
-  # Either of these calls works:
-  #   git rev-parse --abbrev-ref --symbolic-full-name @{u}
-  # or
-  #   git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)"
-  # and each returns a string formatted as "{remote}/{branch}".
-  # We just want the remote.
-  git rev-parse --abbrev-ref --symbolic-full-name @{u} | /usr/bin/env sed -e 's#/.*$##'
-}
-
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
 git_branch_head_version () {
   commits_vtags="$(git_versions_tagged_for_commit)"
 
@@ -397,7 +373,7 @@ git_tvp_tag_vers_push () {
   local remote="${2}"
 
   # Default to the remote tracking branch remote, or fallback to "origin".
-  [ -z "${remote}" ] && remote="$(git_tracking_branch_remote)"
+  [ -z "${remote}" ] && remote="$(git_upstream_parse_remote_name)"
   [ -z "${remote}" ] && remote="origin"
 
   # Insist in a Git project.
