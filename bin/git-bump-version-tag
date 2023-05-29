@@ -200,7 +200,7 @@ resolve_version_bump () {
       ;;
     d | -d | delete)
       # This function is called in a subshell, so we'll scan again later to set
-      #  PERFORM_DELETE=true.
+      #  ACTION_DELETE=true.
       ;;
     *)
       >&2 echo "ERROR: Unknown bump part specifier: “${part_or_version}”"
@@ -241,14 +241,14 @@ resolve_version_next () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 parse_args_for_delete () {
-  PERFORM_DELETE=false
+  ACTION_DELETE=false
 
   local part_or_version="$1"
 
   if ! ( echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null ); then
     case "${part_or_version}" in
       d | -d | delete)
-        PERFORM_DELETE=true
+        ACTION_DELETE=true
         ;;
       *)
         ;;
@@ -312,7 +312,7 @@ git_tag_local_add () {
   local version_tag="$1"
   local curr_version="$2"
 
-  ${PERFORM_DELETE} && return
+  ${ACTION_DELETE} && return
 
   [ "${version_tag}" = "${curr_version}" ] && return
 
@@ -328,7 +328,7 @@ git_tag_local_add () {
 git_tag_local_delete () {
   local version_tag="$1"
 
-  ${PERFORM_DELETE} || return
+  ${ACTION_DELETE} || return
 
   git_tvp_confirm_delete "${version_tag}" || return
 
@@ -348,7 +348,7 @@ git_tag_remote () {
   R2G2P_REMOTE="${remote}" \
   RELEASE_VERSION="${version_tag}" \
   R2G2P_COMMIT="$(git rev-parse HEAD)" \
-  R2G2P_GHUB_CLOBBER_CERTIFIED=${PERFORM_DELETE} \
+  R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
   github_purge_release_and_tags_of_same_name
   #
   ${R2G2P_DO_PUSH_TAG:-false} || return
@@ -356,7 +356,7 @@ git_tag_remote () {
   # Note that if the tag existing, it may have been removed in call to
   # github_purge_release_and_tags_of_same_name, so can return now on
   # delete command.
-  ${PERFORM_DELETE} && return
+  ${ACTION_DELETE} && return
 
   git_tvp_confirm_push "${version_tag}" || return
 
