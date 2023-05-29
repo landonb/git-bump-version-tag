@@ -302,7 +302,7 @@ git_tvp_confirm_push () {
 }
 
 echo_or_eval () {
-  ${DRY_RUN} && echo "$@" || eval "$@"
+  ${DRY_RUN} && echo "DRY_RUN: $@" || eval "$@"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
