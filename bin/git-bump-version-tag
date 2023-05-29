@@ -92,12 +92,12 @@ git_branch_head_version () {
 
 must_head_unversioned_or_matching () {
   local headvers="$1"
-  local fullvers="$2"
+  local curr_version="$2"
   local remote="$3"
 
   [ -z "${headvers}" ] && return
 
-  [ "${headvers}" = "${fullvers}" ] && return
+  [ "${headvers}" = "${curr_version}" ] && return
 
   # MAYBE/2020-03-23 21:50: Allow this use case?
   # - And do what? Replace tag with different version?
@@ -146,11 +146,11 @@ warn_remote_absent () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 latest_version_parts () {
-  local fullvers="$1"
+  local curr_version="$1"
 
   declare -a partsarr
 
-  partsarr=($(echo "${fullvers}" | /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
+  partsarr=($(echo "${curr_version}" | /usr/bin/env sed -E "s/${GITSMART_RE_VERSPARTS}/\1 \2 \4 \5 \6/"))
 
   echo "${partsarr[@]}"
 }
@@ -159,22 +159,22 @@ latest_version_parts () {
 
 must_version_gt () {
   local part_or_version="$1"
-  local fullvers="$2"
+  local curr_version="$2"
 
-  pep440cmp "${part_or_version}" gt "${fullvers}" > /dev/null && return
+  pep440cmp "${part_or_version}" gt "${curr_version}" > /dev/null && return
 
   >&2 echo "ERROR: Desired version not greater than current version!"
-  >&2 echo "  “${part_or_version}” !> “${fullvers}”"
+  >&2 echo "  “${part_or_version}” !> “${curr_version}”"
 
   exit 1
 }
 
 resolve_version_bump () {
-  local fullvers="$1"
+  local curr_version="$1"
   local part_or_version="$2"
   local partsarr
 
-  partsarr="$(latest_version_parts "${fullvers}")"
+  partsarr="$(latest_version_parts "${curr_version}")"
 
   local major minor patch seppa alpha
 
@@ -222,16 +222,16 @@ resolve_version_bump () {
 }
 
 resolve_version_next () {
-  local fullvers="$1"
+  local curr_version="$1"
   local part_or_version="$2"
   local version_tag
 
   if echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null; then
     # A version. Compare against latest.
-    must_version_gt "${part_or_version}" "${fullvers}"
+    must_version_gt "${part_or_version}" "${curr_version}"
     version_tag="${part_or_version}"
   else
-    version_tag="$(resolve_version_bump "${fullvers}" "${part_or_version}")"
+    version_tag="$(resolve_version_bump "${curr_version}" "${part_or_version}")"
     [ $? -ne 0 ] && exit 1
   fi
 
@@ -309,13 +309,13 @@ echo_or_eval () {
 
 git_tag_local_add () {
   local version_tag="$1"
-  local fullvers="$2"
+  local curr_version="$2"
 
   ${PERFORM_DELETE} && return
 
-  [ "${version_tag}" = "${fullvers}" ] && return
+  [ "${version_tag}" = "${curr_version}" ] && return
 
-  git_tvp_confirm_next "${version_tag}" "${fullvers}" || return
+  git_tvp_confirm_next "${version_tag}" "${curr_version}" || return
 
   # Note that this command tags HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
@@ -390,18 +390,18 @@ git_tvp_tag_vers_push () {
   #   must_remote_exists "${remote}"
   warn_remote_absent "${remote}"
 
-  local fullvers="$(git_latest_version_tag)"
+  local curr_version="$(git_latest_version_tag)"
 
   local version_tag
-  version_tag="$(resolve_version_next "${fullvers}" "${part_or_version}")"
+  version_tag="$(resolve_version_next "${curr_version}" "${part_or_version}")"
   [ $? -ne 0 ] && exit 1
 
   parse_args_for_delete "${part_or_version}"
 
   # Insist HEAD unversioned or matches desired.
-  must_head_unversioned_or_matching "${headvers}" "${fullvers}" "${remote}"
+  must_head_unversioned_or_matching "${headvers}" "${curr_version}" "${remote}"
 
-  git_tag_local_add "${version_tag}" "${fullvers}"
+  git_tag_local_add "${version_tag}" "${curr_version}"
   git_tag_local_delete "${version_tag}"
 
   git_tag_remote "${version_tag}" "${remote}"
