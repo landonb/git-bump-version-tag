@@ -42,6 +42,13 @@ BUMP_REMOTE_BRANCH_NAME="${BUMP_REMOTE_BRANCH_NAME:-release}"
 
 BUMP_VERBATIM="${BUMP_VERBATIM:-false}"
 
+# USYNC: Same environ name as what git-put-wise uses.
+# CXREF: https://github.com/DepoXy/git-put-wise#🥨
+#   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
+#
+#  SCOPING_PREFIX="${SCOPING_PREFIX:-PROTECTED: }"
+#  PRIVATE_PREFIX="${PRIVATE_PREFIX:-PRIVATE: }"
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 USAGE="\
@@ -158,6 +165,16 @@ OVERRIDES: Set these environment variables for alternative behavior:
               - E.g., if at version 1.2.3, you can easily start a new alpha
                 version at 1.2.4-alpha.1, 1.3.0-alpha.1, or 2.0.0-alpha.1
             - (As an aside, we're unclear BUMP_VERBATIM is very useful)
+
+SCOPING_PREFIX=\"${SCOPING_PREFIX:-PROTECTED: }\"
+PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
+            Specifies the commit message prefixes that designate which
+            commits should not be published
+            - Used when <COMMIT> is specified as \"HEAD\"
+            - Only works if git-put-wise is installed
+              (see note under <COMMIT>, above)
+              - You can find git-put-wise at
+                https://github.com/DepoXy/git-put-wise#🥨
 "
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -185,6 +202,14 @@ source_deps () {
   # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs
   . "$(dirname "$(realpath "$0")")/../deps/sh-git-nubs/bin/git-nubs.sh"
+
+  # Optional: git-put-wise, for 'identify_scope_ends_at'.
+  # https://github.com/DepoXy/git-put-wise#🥨
+  if command -v git-put-wise > /dev/null; then
+    local put_wise_bin="$(dirname "$(realpath "$(command -v git-put-wise)")")"
+    . "${put_wise_bin}/../lib/common_put_wise.sh"
+    . "${put_wise_bin}/../lib/dep_apply_confirm_patch_base.sh"
+  fi
 }
 
 insist_cmd () {
@@ -1082,7 +1107,18 @@ git_tvp_tag_vers_push () {
         fi
       fi
 
-      tag_commit="${local_head_sha}"
+      # Optional: git-put-wise scope logic.
+      if ! command -v identify_scope_ends_at > /dev/null; then
+        tag_commit="${local_head_sha}"
+      else
+        # Exclude latest commits whose messages start with "PRIVATE: " or
+        # "PROTECTED: ". Use case: So you can keep some stuff private to
+        # your local repo without needing to maintain a separate feature
+        # branch.
+        tag_commit="$( \
+          identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
+        )"
+      fi
     fi
 
     if [ "${remote_name}" != "-" ]; then
