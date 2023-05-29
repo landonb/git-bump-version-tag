@@ -339,7 +339,7 @@ git_tag_local_delete () {
   echo_or_eval git tag -d "${version_tag}"
 }
 
-git_tag_remote () {
+git_tag_remote_delete () {
   local version_tag="$1"
   local remote="$2"
 
@@ -432,7 +432,7 @@ git_tvp_tag_vers_push () {
   git_tag_local_add "${version_tag}" "${curr_version}"
   git_tag_local_delete "${version_tag}"
 
-  git_tag_remote "${version_tag}" "${remote}"
+  git_tag_remote_delete "${version_tag}" "${remote}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
