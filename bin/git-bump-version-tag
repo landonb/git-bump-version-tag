@@ -373,7 +373,7 @@ git_tag_remote_push () {
   RELEASE_VERSION="${version_tag}" \
   R2G2P_COMMIT="$(git rev-parse HEAD)" \
   R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
-  github_purge_release_and_tags_of_same_name
+    github_purge_release_and_tags_of_same_name
   #
   ${R2G2P_DO_PUSH_TAG:-false} || return
 
