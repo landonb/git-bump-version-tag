@@ -262,11 +262,12 @@ git_tvp_confirm_next () {
   local version_tag="$1"
   local curr_version="$2"
 
-  # ${DRY_RUN} && return
+  local do_what_now="start versioning at"
+  if [ -n "${curr_version}" ]; then
+    do_what_now="bump “${curr_version}” →"
+  fi
 
-  [ -n "${curr_version}" ] && curr_version="“${curr_version}” → "
-
-  local msg="Okay to bump ${curr_version}“${version_tag}”"
+  local msg="Okay to ${do_what_now} “${version_tag}”"
   local the_choice
 
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
