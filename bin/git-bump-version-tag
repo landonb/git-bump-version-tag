@@ -231,13 +231,13 @@ resolve_version_bump () {
 # ***
 
 must_version_gt () {
-  local part_or_version="$1"
+  local next_version="$1"
   local curr_version="$2"
 
-  pep440cmp "${part_or_version}" gt "${curr_version}" > /dev/null && return
+  pep440cmp "${next_version}" gt "${curr_version}" > /dev/null && return
 
   >&2 echo "ERROR: Desired version not greater than current version!"
-  >&2 echo "  “${part_or_version}” !> “${curr_version}”"
+  >&2 echo "  “${next_version}” !> “${curr_version}”"
 
   exit 1
 }
