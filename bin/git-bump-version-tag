@@ -397,6 +397,11 @@ git_tvp_tag_vers_push () {
   local part_or_version="${1:-patch}"
   local remote="${2}"
 
+  # Remind user if they're dry-running.
+  ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)"
+
+  # ***
+
   # Default to the remote tracking branch remote, or fallback to "origin".
   [ -z "${remote}" ] && remote="$(git_upstream_parse_remote_name)"
   [ -z "${remote}" ] && remote="origin"
@@ -410,8 +415,6 @@ git_tvp_tag_vers_push () {
   # ***
 
   local headvers="$(git_branch_head_version)"
-
-  ${DRY_RUN} && echo "# TEST AHOY!"
 
   # We don't need the remote to exist; we can still tag the local branch.
   # SKIP:
