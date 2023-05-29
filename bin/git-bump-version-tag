@@ -164,7 +164,7 @@ resolve_version_next () {
 
   if echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null; then
     # A version. Compare against latest.
-    must_version_gt "${part_or_version}" "${curr_version}"
+    insist_next_version_gt_curr_version "${part_or_version}" "${curr_version}"
     version_tag="${part_or_version}"
   else
     version_tag="$(resolve_version_bump "${curr_version}" "${part_or_version}")"
@@ -230,7 +230,7 @@ resolve_version_bump () {
 
 # ***
 
-must_version_gt () {
+insist_next_version_gt_curr_version () {
   local next_version="$1"
   local curr_version="$2"
 
