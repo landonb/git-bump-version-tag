@@ -208,34 +208,34 @@ resolve_version_bump () {
       ;;
   esac
 
-  nextvers="${major:-0}.${minor:-0}"
+  version_tag="${major:-0}.${minor:-0}"
 
-  [ -n "${patch}" ] && nextvers="${nextvers}.${patch}"
+  [ -n "${patch}" ] && version_tag="${version_tag}.${patch}"
 
-  nextvers="${major:-0}.${minor:-0}.${patch:-0}"
+  version_tag="${major:-0}.${minor:-0}.${patch:-0}"
 
-  [ "${nextvers}" = "0.0.0" ] && nextvers="0.0.1"
+  [ "${version_tag}" = "0.0.0" ] && version_tag="0.0.1"
 
-  [ -n "${alpha}" ] && nextvers="${nextvers}${seppa:-a}${alpha}"
+  [ -n "${alpha}" ] && version_tag="${version_tag}${seppa:-a}${alpha}"
 
-  echo "${nextvers}"
+  echo "${version_tag}"
 }
 
 resolve_version_next () {
   local fullvers="$1"
   local part_or_version="$2"
-  local nextvers
+  local version_tag
 
   if echo "${part_or_version}" | grep -E "${GITSMART_RE_VERSPARTS}" > /dev/null; then
     # A version. Compare against latest.
     must_version_gt "${part_or_version}" "${fullvers}"
-    nextvers="${part_or_version}"
+    version_tag="${part_or_version}"
   else
-    nextvers="$(resolve_version_bump "${fullvers}" "${part_or_version}")"
+    version_tag="$(resolve_version_bump "${fullvers}" "${part_or_version}")"
     [ $? -ne 0 ] && exit 1
   fi
 
-  echo "${nextvers}"
+  echo "${version_tag}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -259,14 +259,14 @@ parse_args_for_delete () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 git_tvp_confirm_next () {
-  local nextvers="$1"
+  local version_tag="$1"
   local prevvers="$2"
 
   # ${DRY_RUN} && return
 
   [ -n "${prevvers}" ] && prevvers="“${prevvers}” → "
 
-  local msg="Okay to bump ${prevvers}“${nextvers}”"
+  local msg="Okay to bump ${prevvers}“${version_tag}”"
   local the_choice
 
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
@@ -277,8 +277,8 @@ git_tvp_confirm_next () {
 }
 
 git_tvp_confirm_delete () {
-  local nextvers="$1"
-  local msg="Okay to delete “${nextvers}”"
+  local version_tag="$1"
+  local msg="Okay to delete “${version_tag}”"
   local the_choice
 
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
@@ -289,9 +289,9 @@ git_tvp_confirm_delete () {
 }
 
 git_tvp_confirm_push () {
-  local nextvers="$1"
+  local version_tag="$1"
   # ${DRY_RUN} && return
-  local msg="Okay to push “${nextvers}”"
+  local msg="Okay to push “${version_tag}”"
   local the_choice
 
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
@@ -308,34 +308,34 @@ echo_or_eval () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 git_tag_local_add () {
-  local nextvers="$1"
+  local version_tag="$1"
   local fullvers="$2"
 
   ${PERFORM_DELETE} && return
 
-  [ "${nextvers}" = "${fullvers}" ] && return
+  [ "${version_tag}" = "${fullvers}" ] && return
 
-  git_tvp_confirm_next "${nextvers}" "${fullvers}" || return
+  git_tvp_confirm_next "${version_tag}" "${fullvers}" || return
 
   # Note that this command tags HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
-  #   git tag -a ${nextvers} -m "Version: ${nextvers}" "release"
+  #   git tag -a ${version_tag} -m "Version: ${version_tag}" "release"
   # but that would probably be confusing to the user. So stick to HEAD.
-  echo_or_eval git tag -a "${nextvers}" -m "'Version: ${nextvers}'"
+  echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag}'"
 }
 
 git_tag_local_delete () {
-  local nextvers="$1"
+  local version_tag="$1"
 
   ${PERFORM_DELETE} || return
 
-  git_tvp_confirm_delete "${nextvers}" || return
+  git_tvp_confirm_delete "${version_tag}" || return
 
-  echo_or_eval git tag -d "${nextvers}"
+  echo_or_eval git tag -d "${version_tag}"
 }
 
 git_tag_remote () {
-  local nextvers="$1"
+  local version_tag="$1"
   local remote="$2"
 
   must_remote_exists "${remote}"
@@ -345,7 +345,7 @@ git_tag_remote () {
 
   # Network call!
   R2G2P_REMOTE="${remote}" \
-  RELEASE_VERSION="${nextvers}" \
+  RELEASE_VERSION="${version_tag}" \
   R2G2P_COMMIT="$(git rev-parse HEAD)" \
   R2G2P_GHUB_CLOBBER_CERTIFIED=${PERFORM_DELETE} \
   github_purge_release_and_tags_of_same_name
@@ -357,13 +357,13 @@ git_tag_remote () {
   # delete command.
   ${PERFORM_DELETE} && return
 
-  git_tvp_confirm_push "${nextvers}" || return
+  git_tvp_confirm_push "${version_tag}" || return
 
   # NOTE: This'll push both commit and tag, as necessary.
   #       - And GitHub will make a release object, too.
   local branch="$(git_branch_name)"
 
-  echo_or_eval git push "${remote}" "${branch}" "refs/tags/${nextvers}"
+  echo_or_eval git push "${remote}" "${branch}" "refs/tags/${version_tag}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -392,8 +392,8 @@ git_tvp_tag_vers_push () {
 
   local fullvers="$(git_latest_version_tag)"
 
-  local nextvers
-  nextvers="$(resolve_version_next "${fullvers}" "${part_or_version}")"
+  local version_tag
+  version_tag="$(resolve_version_next "${fullvers}" "${part_or_version}")"
   [ $? -ne 0 ] && exit 1
 
   parse_args_for_delete "${part_or_version}"
@@ -401,10 +401,10 @@ git_tvp_tag_vers_push () {
   # Insist HEAD unversioned or matches desired.
   must_head_unversioned_or_matching "${headvers}" "${fullvers}" "${remote}"
 
-  git_tag_local_add "${nextvers}" "${fullvers}"
-  git_tag_local_delete "${nextvers}"
+  git_tag_local_add "${version_tag}" "${fullvers}"
+  git_tag_local_delete "${version_tag}"
 
-  git_tag_remote "${nextvers}" "${remote}"
+  git_tag_remote "${version_tag}" "${remote}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
