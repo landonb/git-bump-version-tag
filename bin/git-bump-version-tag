@@ -110,13 +110,13 @@ must_head_unversioned_or_matching () {
 }
 
 print_tag_delete_hints () {
-  local headvers="$1"
+  local head_version="$1"
   local remote_name="$2"
 
   >&2 echo "- To delete the local tag, try:"
-  >&2 echo "    git tag --delete ${headvers}"
+  >&2 echo "    git tag --delete ${head_version}"
   >&2 echo "- To delete the remote tag, try:"
-  >&2 echo "    git push ${remote_name} :refs/tags/${headvers}"
+  >&2 echo "    git push ${remote_name} :refs/tags/${head_version}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
