@@ -369,6 +369,26 @@ git_tag_remote () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+git_wip_commit_if_untidy () {
+  local wipped=false
+
+  # If nothing is staged, git-commit fails, but we'll check git-status anyway.
+  test -n "$(git status --porcelain=v1)" \
+    && git add -A \
+    && git commit -q --no-verify -m 'PRIVATE: WIP [git-bump-version-tag]' > /dev/null \
+    && wipped=true
+
+  printf "%s" "${wipped}"
+}
+
+git_pop_wip_commit_maybe () {
+  local wipped="$1"
+
+  ${wipped} && git reset -q --mixed @~1
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 git_tvp_tag_vers_push () {
   local part_or_version="${1:-patch}"
   local remote="${2}"
@@ -377,10 +397,13 @@ git_tvp_tag_vers_push () {
   [ -z "${remote}" ] && remote="$(git_upstream_parse_remote_name)"
   [ -z "${remote}" ] && remote="origin"
 
-  # Insist in a Git project.
+  # Insist run from within a Git project.
   git_insist_git_repo || exit 1
-  # Insist in a Git project, and it's tidy.
-  git_insist_pristine || exit 1
+
+  # Create temporary WIP commit if untidy.
+  _WIPPED="$(git_wip_commit_if_untidy)"
+
+  # ***
 
   local headvers="$(git_branch_head_version)"
 
@@ -410,6 +433,15 @@ git_tvp_tag_vers_push () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+_WIPPED=false
+
+function exit_cleanup () {
+  git_pop_wip_commit_maybe "${_WIPPED}"
+}
+trap exit_cleanup EXIT
+
+# ***
+
 main () {
   source_deps "${BASH_SOURCE[0]}" || exit 1
 
@@ -419,4 +451,7 @@ main () {
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
   main "${@}"
 fi
+
+# Unhook exit_cleanup.
+trap - EXIT
 
