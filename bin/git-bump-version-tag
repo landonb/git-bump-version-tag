@@ -201,6 +201,7 @@ source_deps () {
   #   github_purge_release_and_tags_of_same_name;
   # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs
+  #   ~/.kit/sh/sh-git-nubs/bin/git-nubs.sh
   . "$(dirname "$(realpath "$0")")/../deps/sh-git-nubs/bin/git-nubs.sh"
 
   # Optional: git-put-wise, for 'identify_scope_ends_at'.
