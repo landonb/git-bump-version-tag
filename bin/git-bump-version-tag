@@ -82,12 +82,12 @@ OPTIONS: One or more of:
 - a, -a, alpha   Bump pre-release version by one
                  - This only works if the pre-release part ends in a number
                  - Use BUMP_PRERELEASE_BASE to set the default prerelease
-                   value (defaults: ${BUMP_PRERELEASE_BASE})
+                   value (defaults: “${BUMP_PRERELEASE_BASE}”)
                    - E.g., given current version 1.2.3, then
                        $ git bump major alpha
                      will create version 2.0.0${BUMP_PRERELEASE_BASE}1
                    - BUMP_PRERELEASE_BASE is ignored if the previous tag
-                    is already prerelease, and its value is used instead
+                     is already prerelease, and its value is used instead
 
 - v, -v, v-pre   Use \"v\" tag prefix
                  - Adds v-prefix if previous tag was not v-prefixed
