@@ -637,17 +637,33 @@ is_known_remote () {
   # "-" means skip remote tag push.
   [ "${word}" = "-" ] && return 0
 
+  starts_with_alphanum "${word}" || return 1
+
   git remote get-url "${word}" > /dev/null 2>&1
 }
 
 is_known_commit_sha () {
   local word="$1"
 
+  starts_with_alphanum "${word}" || return 1
+
   [ "${word}" = "HEAD" ] && return 0
 
   git rev-parse "${word}" 2> /dev/null || return 1
 
   [[ "$(git rev-parse "${word}")" = "${word}"* ]]
+}
+
+# - A hostname may not start with a hyphen:
+#     <name>  ::= <let>[*[<let-or-digit-or-hyphen>]<let-or-digit>]
+#   https://www.rfc-editor.org/rfc/rfc952
+#   - A hostname may start with an alpha or a digit:
+#     https://www.rfc-editor.org/rfc/rfc1123#section-2
+# - Same with SHA, starts with alphanum. No biblio needed.
+starts_with_alphanum () {
+  local word="$1"
+
+  echo "${word}" | command grep -q -E -e "^[a-zA-Z0-9]+$"
 }
 
 # ***
