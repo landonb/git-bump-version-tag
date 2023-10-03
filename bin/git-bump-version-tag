@@ -703,17 +703,21 @@ insist_next_version_gt_curr_version () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# CXREF: SemVer Perl regex, from the source, unaltered.
+#   https://semver.org/
+#   https://regex101.com/r/Ly7O1x/3/
 insist_new_version_semver_compliant () {
   local version_tag="$1"
 
-  local semver
+  local vless_version="$(echo "${version_tag}" | sed 's/^v//')"
 
+  local semver
   semver="$(
-    perl -ne "print if /${GITSMART_RE_SEMVERSPARTS}/" <<<"${version_tag}"
+    perl -ne "print if /${GITSMART_RE_SEMVERSPARTS}/" <<<"${vless_version}"
   )"
 
   if [ -z "${semver}" ]; then
-    >&2 echo "ERROR: The new version is not SemVer compliant: ${version_tag}"
+    >&2 echo "ERROR: The new version is not SemVer compliant: ${vless_version}"
 
     exit 1
   fi
