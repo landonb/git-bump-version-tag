@@ -787,7 +787,11 @@ git_tag_local_add () {
   local tag_commit="$2"
   local curr_version="$3"
 
-  [ "${version_tag}" = "${curr_version}" ] && return
+  if [ "${version_tag}" = "${curr_version}" ]; then
+    echo "✓ Local tag exists"
+
+    return
+  fi
 
   git_tvp_confirm_next "${version_tag}" "${curr_version}" || return
 
@@ -797,6 +801,8 @@ git_tag_local_add () {
   # but that would probably be confusing to the user. So stick to HEAD.
 
   echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag#v}'" "${tag_commit}"
+
+  echo "✓ Created local tag"
 }
 
 git_tag_local_delete () {
@@ -829,6 +835,7 @@ git_tag_remote_push () {
   # (lb): I considerd making the ls-remote call (which, e.g., pings GitHub)
   # to be optional. But it's just as easy to Ctrl-C when the script gets here.
 
+  printf '%s' '- '
   # Network call!
   R2G2P_REMOTE="${remote_name}" \
   RELEASE_VERSION="${version_tag}" \
@@ -836,7 +843,11 @@ git_tag_remote_push () {
   R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
     github_purge_release_and_tags_of_same_name
   #
-  ${R2G2P_DO_PUSH_TAG:-false} || return
+  if ! ${R2G2P_DO_PUSH_TAG:-false}; then
+    echo "✓ Remote already up-to-date"
+
+    return
+  fi
 
   # Note that if the tag existing, it may have been removed in call to
   # github_purge_release_and_tags_of_same_name, so can return now on
@@ -856,6 +867,8 @@ git_tag_remote_push () {
   #     not the same as the local branch.
   if ! "${skip_push_branch}"; then
     echo_or_eval git push "${remote_name}" "${tag_commit}:refs/heads/${remote_branch}"
+
+    echo "✓ Pushed remote branch"
   fi
 
   # Note that GitHub automatically creates a release for the tag,
@@ -864,6 +877,8 @@ git_tag_remote_push () {
   # version tag event).
   if ! "${skip_push_tag}"; then
     echo_or_eval git push "${remote_name}" "refs/tags/${version_tag}"
+
+    echo "✓ Pushed remote tag"
   fi
 }
 
@@ -1090,6 +1105,8 @@ git_tvp_tag_vers_push () {
   if [ "${remote_name}" != "-" ]; then
     remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
       || exit 1
+
+    ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}"
   fi
 
   if ! ${ACTION_DELETE}; then
