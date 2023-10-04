@@ -277,14 +277,6 @@ must_remote_exists () {
   exit 1
 }
 
-warn_remote_absent () {
-  local remote_name="$1"
-
-  git_remote_exists "${remote_name}" && return
-
-  >&2 echo "ALERT: No remote named “${remote_name}”"
-}
-
 # Some CI workflows might version tag automatically,
 # so periodically fetch to try to ensure up to date.
 # - We could fetch every time, but this is a network
@@ -830,7 +822,12 @@ git_tag_remote_push () {
   local skip_push_branch="$5"
   local skip_push_tag="$6"
 
-  must_remote_exists "${remote_name}"
+  # We've already verified the remote exists:
+  #
+  #   must_remote_exists "${remote_name}"
+  #
+  # - Or at least we know that it's a locally named remote.
+  #   Whether or not it's reachable, we don't know yet.
 
   # (lb): I considerd making the ls-remote call (which, e.g., pings GitHub)
   # to be optional. But it's just as easy to Ctrl-C when the script gets here.
@@ -1071,13 +1068,13 @@ git_tvp_tag_vers_push () {
     [ -z "${remote_name}" ] && remote_name="$(git_upstream_parse_remote_name)"
     [ -z "${remote_name}" ] && remote_name="origin"
 
-    # We don't need the remote to exist; we can still tag the local branch.
-    # - We could survive without the remote and just tag the local branch.
-    #   - Or we could insist, because this command is more about managing
-    #     to remote tag (e.g., to trigger a CI workflow to make a release).
-    # Don't insist remote exists until :
-    #   must_remote_exists "${remote_name}"
-    warn_remote_absent "${remote_name}"
+    # We don't necessarily care if the remote doesn't exist — we could still
+    # tag the local branch, and then fail on/before the git-push — but this
+    # also seems like an issue the user should be made to resolve first. If
+    # they really don't care, they can re-run the command with '-' as the
+    # remote name to skip remote functionality. But really they'll probably
+    # want to fix the local repo remote, or fix their bump-version-tags arg.
+    must_remote_exists "${remote_name}"
 
     # Fetch remote at least every hour (network call).
     periodically_fetch "${remote_name}"
