@@ -198,7 +198,7 @@ source_deps () {
   #   git_insist_git_repo
   #   git_largest_version_tag
   #   git_remote_exists
-  #   github_purge_release_and_tags_of_same_name;
+  #   git_tag_remote_verify_commit;
   # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs
   #   ~/.kit/sh/sh-git-nubs/bin/git-nubs.sh
@@ -820,7 +820,6 @@ git_tag_remote_push () {
   local remote_name="$3"
   local remote_branch="$4"
   local skip_push_branch="$5"
-  local skip_push_tag="$6"
 
   # We've already verified the remote exists:
   #
@@ -828,28 +827,52 @@ git_tag_remote_push () {
   #
   # - Or at least we know that it's a locally named remote.
   #   Whether or not it's reachable, we don't know yet.
-
-  # (lb): I considerd making the ls-remote call (which, e.g., pings GitHub)
-  # to be optional. But it's just as easy to Ctrl-C when the script gets here.
-
-  printf '%s' '- '
-  # Network call!
-  R2G2P_REMOTE="${remote_name}" \
-  RELEASE_VERSION="${version_tag}" \
-  R2G2P_COMMIT="${tag_commit}" \
-  R2G2P_GHUB_CLOBBER_CERTIFIED=${ACTION_DELETE} \
-    github_purge_release_and_tags_of_same_name
   #
-  if ! ${R2G2P_DO_PUSH_TAG:-false}; then
+  # The purge function calls git-ls-remote, which contacts
+  # the remote server.
+
+  local verify_retcode
+
+  # Prefix the git_tag_remote_verify_commit output to better
+  # distinguish it from other messages.
+  printf '%s' '- '
+
+  # Delete remote version tag from target commit.
+  # - This makes a network call (via git-ls-remote).
+  # - This checks if the same version tag exists on the remote,
+  #   and if it's applied to the same target commit or not.
+  #   - If tag exists and applied to commit, returns GNUBS_TAG_PRESENT (0).
+  #   - If tag exists but applied to a different commit,
+  #     prompts user to delete that tag from the remote.
+  #   - If tag doesn't exist, returns GNUBS_TAG_ABSENT (1).
+  #   - On error, returns GNUBS_FAILED (-1).
+  git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
+  verify_retcode=$?
+
+  if [ ${verify_retcode} -eq ${GNUBS_FAILED} ]; then
+    >&2 echo "ERROR: git_tag_remote_verify_commit failed"
+
+    exit 1
+  fi
+
+  if ${ACTION_DELETE}; then
+    if [ ${verify_retcode} -eq ${GNUBS_TAG_PRESENT} ]; then
+      # Remove the tag. If the remote is on GitHub, this removes the lightweight
+      # (non-annotated) release (e.g., from https://github.com/user/repo/releases)
+      # that's automatically generated when the tag was initally applied.
+      # - At least that's what I've observed: I'm not quite sure how it works,
+      #   or where it's documented, just that deleting the tag clears the entry.
+      git_tag_remote_delete "${version_tag}" "${remote_name}"
+    fi
+
+    return
+  elif [ ${verify_retcode} -eq ${GNUBS_TAG_PRESENT} ]; then
+    # The tag is already pushed.
     echo "✓ Remote already up-to-date"
 
     return
   fi
-
-  # Note that if the tag existing, it may have been removed in call to
-  # github_purge_release_and_tags_of_same_name, so can return now on
-  # delete command.
-  ${ACTION_DELETE} && return
+  # else, [ ${verify_retcode} -eq ${GNUBS_TAG_ABSENT} ], so push it.
 
   git_tvp_confirm_push "${version_tag}" "${remote_name}" || return
 
@@ -872,11 +895,9 @@ git_tag_remote_push () {
   # but it'll be replaced after your CI runs and creates a proper
   # release (well, assuming you have a release workflow tied to a
   # version tag event).
-  if ! "${skip_push_tag}"; then
-    echo_or_eval git push "${remote_name}" "refs/tags/${version_tag}"
+  echo_or_eval git push "${remote_name}" "refs/tags/${version_tag}"
 
-    echo "✓ Pushed remote tag"
-  fi
+  echo "✓ Pushed remote tag"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -1106,67 +1127,74 @@ git_tvp_tag_vers_push () {
     ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}"
   fi
 
-  if ! ${ACTION_DELETE}; then
-    local tag_commit="${TAG_COMMIT}"
+  # ***
 
-    local skip_remote_push_branch=false
+  # Suss tag_commit from local_head_sha and remote_head_sha.
 
-    local remote_head_sha
+  local tag_commit="${TAG_COMMIT}"
+
+  local remote_head_sha
+  if [ "${remote_name}" != "-" ]; then
+    remote_head_sha="$(
+      git_remote_branch_object_name "${remote_name}" "${remote_branch}"
+    )"
+  fi
+
+  if [ -z "${tag_commit}" ]; then
     if [ "${remote_name}" != "-" ]; then
-      remote_head_sha="$(
-        git_remote_branch_object_name "${remote_name}" "${remote_branch}"
+      tag_commit="${remote_head_sha}"
+    else
+      tag_commit="HEAD"
+    fi
+  fi
+
+  local local_head_sha="$(git_HEAD_commit_sha)"
+
+  if [ "${tag_commit}" = "HEAD" ]; then
+    if [ "${remote_name}" != "-" ]; then
+      # Ensure branch names match (don't let user accidentally tag and
+      # push wrong branch to remote).
+      local local_branch="$(git_branch_name)"
+
+      if [ "${local_branch}" != "${remote_branch}" ]; then
+        >&2 echo "ERROR: Expected the same local and remote branch names"
+        >&2 echo "- Not “${local_branch}” (local) and “${remote_branch}” (remote)"
+
+        exit 1
+      fi
+    fi
+
+    # Optional: git-put-wise scope logic.
+    if ! command -v identify_scope_ends_at > /dev/null; then
+      tag_commit="${local_head_sha}"
+    else
+      # Exclude latest commits whose messages start with "PRIVATE: " or
+      # "PROTECTED: ". Use case: So you can keep some stuff private to
+      # your local repo without needing to maintain a separate feature
+      # branch.
+      tag_commit="$( \
+        identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
       )"
     fi
+  fi
 
-    if [ -z "${tag_commit}" ]; then
-      if [ "${remote_name}" != "-" ]; then
-        tag_commit="${remote_head_sha}"
-      else
-        tag_commit="HEAD"
-      fi
-    fi
+  # ***
 
-    local local_head_sha="$(git_HEAD_commit_sha)"
+  local skip_push_branch=true
 
-    if [ "${tag_commit}" = "HEAD" ]; then
-      if [ "${remote_name}" != "-" ]; then
-        # Ensure branch names match (don't let user accidentally tag and
-        # push wrong branch to remote).
-        local local_branch="$(git_branch_name)"
-
-        if [ "${local_branch}" != "${remote_branch}" ]; then
-          >&2 echo "ERROR: No, I will not push local branch “${local_branch}”" \
-            "to remote branch “${remote_branch}”"
-
-          exit 1
-        fi
-      fi
-
-      # Optional: git-put-wise scope logic.
-      if ! command -v identify_scope_ends_at > /dev/null; then
-        tag_commit="${local_head_sha}"
-      else
-        # Exclude latest commits whose messages start with "PRIVATE: " or
-        # "PROTECTED: ". Use case: So you can keep some stuff private to
-        # your local repo without needing to maintain a separate feature
-        # branch.
-        tag_commit="$( \
-          identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
-        )"
-      fi
-    fi
+  if ! ${ACTION_DELETE}; then
+    skip_push_branch=false
 
     if [ "${remote_name}" != "-" ]; then
       if [ "${tag_commit}" = "${remote_head_sha}" ]; then
         # Don't need to push this commit, which is remote branch HEAD.
-        skip_remote_push_branch=true
+        skip_push_branch=true
       fi
     fi
 
-    local SKIP_REMOTE_PUSH_TAG=false
     if [ "${remote_name}" != "-" ]; then
-      if ! ${skip_remote_push_branch}; then
-        # We know ${tag_commit} != ${remote_head_sha} because ${skip_remote_push_branch}.
+      if ! ${skip_push_branch}; then
+        # We know ${tag_commit} != ${remote_head_sha} because ${skip_push_branch}.
         # Check if the local branch has more commits than the remote branch.
         if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
           # Local ahead of remote.
@@ -1215,19 +1243,16 @@ git_tvp_tag_vers_push () {
 
     # Tag the local commit (returns immediately if already tagged).
     git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
-
-    if [ "${remote_name}" != "-" ]; then
-      git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
-        "${remote_name}" "${remote_branch}" \
-        "${skip_remote_push_branch}" "${SKIP_REMOTE_PUSH_TAG}"
-    fi
   else
     # This is ${ACTION_DELETE}.
 
     git_tag_local_delete "${VERSION_TAG}"
-    if [ "${remote_name}" != "-" ]; then
-      git_tag_remote_delete "${VERSION_TAG}" "${remote_name}"
-    fi
+  fi
+
+  if [ "${remote_name}" != "-" ]; then
+    # Delete and/or push the remote tag (and maybe the branch).
+    git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
+      "${remote_name}" "${remote_branch}" "${skip_push_branch}"
   fi
 }
 
