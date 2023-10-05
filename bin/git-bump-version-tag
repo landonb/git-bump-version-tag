@@ -855,15 +855,15 @@ git_tag_remote_push () {
   local remote_branch="$4"
   local skip_push_branch="$5"
 
-  # We've already verified the remote exists:
+  # We've already verified the remote name is defined locally:
   #
   #   must_remote_exists "${remote_name}"
   #
-  # - Or at least we know that it's a locally named remote.
-  #   Whether or not it's reachable, we don't know yet.
+  # But we haven't attempted to contact the remote until now,
+  # so we don't yet know that it's actually reachable/online.
   #
-  # The purge function calls git-ls-remote, which contacts
-  # the remote server.
+  # - The `git_tag_remote_verify_commit` function, below,
+  #   calls git-ls-remote, which contacts the remote server.
 
   local verify_result
 
@@ -899,6 +899,8 @@ git_tag_remote_push () {
     verify_result=${GNUBS_TAG_ABSENT}
   fi
 
+  # ***
+
   if ${ACTION_DELETE}; then
     if [ ${verify_result} -eq ${GNUBS_TAG_PRESENT} ]; then
       # Remove the tag. If the remote is on GitHub, this removes the lightweight
@@ -922,6 +924,8 @@ git_tag_remote_push () {
     return 1
   fi
   # else, [ ${verify_result} -eq ${GNUBS_TAG_ABSENT} ], so push it.
+
+  # ***
 
   git_tvp_confirm_push "${version_tag}" "${remote_name}" \
     || return 1
@@ -1282,7 +1286,8 @@ git_tvp_tag_vers_push () {
 
     if [ "${remote_name}" != "-" ]; then
       if ! ${skip_push_branch}; then
-        # We know ${tag_commit} != ${remote_head_sha} because ${skip_push_branch}.
+        # We know ${tag_commit} != ${remote_head_sha} because ! ${skip_push_branch}.
+
         # Check if the local branch has more commits than the remote branch.
         if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
           # Local ahead of remote.
