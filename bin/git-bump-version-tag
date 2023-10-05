@@ -814,6 +814,10 @@ git_tag_remote_delete () {
   git_tvp_confirm_delete "${version_tag}" "${remote_name}" \
     || return 1
 
+  # (lb): I realize there's a less obtuse syntax to delete tags, e.g.,
+  #           git push --delete ${remote_name} ${tag_name}
+  #       But that syntax might also delete a branch of the same name.
+  #       So be :obtuse, and be specific about what's being deleted.
   echo_or_eval git push "${remote_name}" ":refs/tags/${version_tag}"
 }
 
