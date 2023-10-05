@@ -1292,7 +1292,7 @@ git_tvp_tag_vers_push () {
         if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
           # Local ahead of remote.
           if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
-            >&2 echo "ERROR: Remote branch HEAD is not ancestor of target commit"
+            >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
 
             exit 1
           fi
