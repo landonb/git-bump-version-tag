@@ -768,6 +768,33 @@ git_tvp_confirm_push () {
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
 
+# ***
+
+# WORDS/2023-10-05: 'tvp' is old abbrev: git_tvp_tag_vers_push, but
+#                   the script since renamed bump-version-tag, 'bvt'.
+# - FIXME: Rename 'em all... git_tvp → git_bvt (and search for 'bvt' leftovers).
+git_bvt_print_conflict_alert () {
+  local version_tag="$1"
+  local remote_name="$2"
+  local tag_commit="$3"
+
+  echo
+  echo "🚨 ATTENTION 🚨: The tag ‘${version_tag}’ on remote ‘${remote_name}’"
+  echo "                 refers to a different commit than it does locally:"
+  echo
+  echo "    local  tag ref  ${tag_commit}"
+  echo "    remote tag ref  ${GNUBS_TAG_COMMIT_OBJECT:-<missing-GNUBS_TAG_COMMIT_OBJECT>}"
+  echo
+  #
+  # `git_tag_remote_verify_commit` sets a global to send back the tag commit ID.
+  if [ -z "${GNUBS_TAG_COMMIT_OBJECT}" ]; then
+    # Impossible path.
+    >&2 echo "ERROR: Expected non-empty remote tag ref (GNUBS_TAG_COMMIT_OBJECT)"
+  fi
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 echo_or_eval () {
   ${DRY_RUN} && echo "DRY_RUN: $@" || eval "$@"
 }
@@ -853,6 +880,7 @@ git_tag_remote_push () {
   #     prompts user to delete that tag from the remote.
   #   - If tag doesn't exist, returns GNUBS_TAG_ABSENT (1).
   #   - On error, returns GNUBS_FAILED (-1).
+  GNUBS_TAG_COMMIT_OBJECT=""
   git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
   verify_result=$?
 
@@ -860,6 +888,15 @@ git_tag_remote_push () {
     >&2 echo "ERROR: git_tag_remote_verify_commit failed"
 
     exit 1
+  elif [ ${verify_result} -eq ${GNUBS_TAG_CONFLICT} ]; then
+    git_bvt_print_conflict_alert "${version_tag}" "${remote_name}" "${tag_commit}"
+
+    # Return now if user declines delete, or if delete fails, so we don't
+    # have to further process GNUBS_TAG_CONFLICT state.
+    git_tag_remote_delete "${version_tag}" "${remote_name}" \
+      || return 1
+
+    verify_result=${GNUBS_TAG_ABSENT}
   fi
 
   if ${ACTION_DELETE}; then
@@ -878,6 +915,11 @@ git_tag_remote_push () {
     echo "✓ Remote already up-to-date"
 
     return
+  elif [ ${verify_result} -ne ${GNUBS_TAG_ABSENT} ]; then
+    # Impossible path.
+    >&2 echo "ERROR: Unexpected verify_result: ${verify_result} (expecting ${GNUBS_TAG_ABSENT})"
+
+    return 1
   fi
   # else, [ ${verify_result} -eq ${GNUBS_TAG_ABSENT} ], so push it.
 
