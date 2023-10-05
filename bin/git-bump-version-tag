@@ -198,6 +198,7 @@ source_deps () {
   #   git_insist_git_repo
   #   git_largest_version_tag
   #   git_remote_exists
+  #   git_versions_tagged_for_commit_object
   #   git_tag_remote_verify_commit;
   # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs
@@ -221,6 +222,39 @@ insist_cmd () {
   >&2 echo "ERROR: Missing system command ‘${cmdname}’."
 
   exit 1
+}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+insist_tag_commit_unversioned_or_same_version () {
+  local version_tag="$1"
+  local tag_commit="$2"
+
+  local existing_tags
+  existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
+
+  if [ -n "${existing_tags}" ]; then
+    local num_versions="$(echo "${existing_tags}" | wc -l)"
+
+    if [ ${num_versions} -gt 1 ]; then
+      >&2 echo "ERROR: The target commit has more than one version tag:"
+      >&2 echo "${existing_tags}"
+
+      exit 1
+    fi
+
+    local current_version="${existing_tags}"
+
+    if [ "${current_version}" != "${version_tag}" ]; then
+      # We could allow this, but seems like an unlikely use case,
+      # or rather, I can't think of a valid end user use case for
+      # tagging the same commit with more than one version, so
+      # block it.
+      >&2 echo "ERROR: The target commit is already version-tagged: ${current_version}"
+
+      exit 1
+    fi
+  fi
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -954,6 +988,64 @@ git_tag_remote_push () {
   echo "✓ Pushed remote tag"
 }
 
+# ***
+
+# DEBAR: We could also verify that the remote commit object
+# doesn't have "hidden" tags, but it's an unlikely scenario,
+# and git-ls-remote is costly (it's a slower network call).
+#
+# - How you could check: Call `git ls-remote --tag <remote>`,
+#   parse results for ${tag_commit}, then examine tag names.
+#
+#   - Look for version tags, and complain (or fail) if there
+#     are more than one version tags, or if the version tag
+#     is different from ${version_tag}.
+#
+#   - We could do this from within the previous function,
+#     git_tag_remote_push, e.g., after calling
+#     git_tag_remote_verify_commit.
+#
+# - How you could create the situation: Create a tag, push it,
+#   delete it (but not off the remote), create a new version tag
+#   at the same commit, and push that tag.
+#
+#   - Now the remote has two version tags on the same commit.
+#
+# - This app already prevents double-versioning locally. It'll
+#   refuse to run if ${tag_commit} already has a version different
+#   than ${version_tag}. See:
+#
+#     insist_tag_commit_unversioned_or_same_version
+#
+#   - So the scenario described only happens if the user
+#     fails to delete remote tags after deleting locally.
+#
+# - But it's really not a big deal if there are multiple versions
+#   on the same commit. It mostly just looks funny (sloppy).
+#
+# - Considering all that, and that git-ls-remote is a slower
+#   network call, we won't check integrity of tags applied to
+#   ${tag_commit} on the remote.
+#
+#   - But in the call to `git_tag_remote_verify_commit`, we do
+#     check the integrity of at least the version tag applied on
+#     the remote -- the function fails if the version tag is
+#     already applied on the remote, but to a different commit.
+#
+#     - This is your classic `git push --force` situation,
+#       except we don't know which tag is the "correct" tag,
+#       be it the local tag, or the remote tag.
+#
+#     - So we need the user to decide which tag to keep,
+#       and which tag to clobber.
+#
+#   - Another way to reason this:
+#     - It's okay to apply more than one version tag to the same commit.
+#     - It's not okay to have more than one commit with the same version.
+#       - Git won't let this happen in the same repo anyway,
+#         but it could happen between two separate repos.
+#       - If app sees this, it'll fail to user to resolve the conflict.
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 git_smallest_version_tag () {
@@ -1281,6 +1373,8 @@ git_tvp_tag_vers_push () {
           "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
       fi
     fi
+
+    insist_tag_commit_unversioned_or_same_version "${VERSION_TAG}" "${tag_commit}"
 
     # *** Verify version order integrity between local and remote repos
 
