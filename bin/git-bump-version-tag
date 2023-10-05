@@ -1242,21 +1242,8 @@ git_tvp_tag_vers_push () {
       fi
     fi
 
-    if [ "${remote_name}" != "-" ]; then
-      if ! ${skip_push_branch}; then
-        # We know ${tag_commit} != ${remote_head_sha} because ${skip_push_branch}.
-        # Check if the local branch has more commits than the remote branch.
-        if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
-          # Local ahead of remote.
-          if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
-            >&2 echo "ERROR: Remote branch HEAD is not ancestor of target commit"
+    # *** Verify version order integrity between commits before and commits after
 
-            exit 1
-          fi
-        fi
-        # else, remote ahead of local. Means we're tagging an old commit.
-      fi
-      # else, means we're not moving remote branch HEAD.
     # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
     local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
     if [ -n "${commit_version}" ]; then
@@ -1290,6 +1277,27 @@ git_tvp_tag_vers_push () {
           "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
       fi
     fi
+
+    # *** Verify version order integrity between local and remote repos
+
+    if [ "${remote_name}" != "-" ]; then
+      if ! ${skip_push_branch}; then
+        # We know ${tag_commit} != ${remote_head_sha} because ${skip_push_branch}.
+        # Check if the local branch has more commits than the remote branch.
+        if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
+          # Local ahead of remote.
+          if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
+            >&2 echo "ERROR: Remote branch HEAD is not ancestor of target commit"
+
+            exit 1
+          fi
+        fi
+        # else, remote ahead of local. Means we're tagging an old commit.
+      fi
+      # else, means we're not moving remote branch HEAD.
+    fi
+
+    # ***
 
     # Tag the local commit (returns immediately if already tagged).
     git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
