@@ -782,10 +782,11 @@ git_tag_local_add () {
   if [ "${version_tag}" = "${curr_version}" ]; then
     echo "✓ Local tag exists"
 
-    return
+    return 0
   fi
 
-  git_tvp_confirm_next "${version_tag}" "${curr_version}" || return
+  git_tvp_confirm_next "${version_tag}" "${curr_version}" \
+    || return 1
 
   # Note that this command tags HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
@@ -800,7 +801,8 @@ git_tag_local_add () {
 git_tag_local_delete () {
   local version_tag="$1"
 
-  git_tvp_confirm_delete "${version_tag}" "" || return
+  git_tvp_confirm_delete "${version_tag}" "" \
+    || return 1
 
   echo_or_eval git tag -d "${version_tag}"
 }
@@ -809,7 +811,8 @@ git_tag_remote_delete () {
   local version_tag="$1"
   local remote_name="$2"
 
-  git_tvp_confirm_delete "${version_tag}" "${remote_name}" || return
+  git_tvp_confirm_delete "${version_tag}" "${remote_name}" \
+    || return 1
 
   echo_or_eval git push "${remote_name}" ":refs/tags/${version_tag}"
 }
@@ -874,7 +877,8 @@ git_tag_remote_push () {
   fi
   # else, [ ${verify_retcode} -eq ${GNUBS_TAG_ABSENT} ], so push it.
 
-  git_tvp_confirm_push "${version_tag}" "${remote_name}" || return
+  git_tvp_confirm_push "${version_tag}" "${remote_name}" \
+    || return 1
 
   # If user specified "HEAD" <COMMIT>, push that, too.
   # - Otherwise we're tagging the current remote branch HEAD,
