@@ -838,7 +838,7 @@ git_tag_remote_push () {
   # The purge function calls git-ls-remote, which contacts
   # the remote server.
 
-  local verify_retcode
+  local verify_result
 
   # Prefix the git_tag_remote_verify_commit output to better
   # distinguish it from other messages.
@@ -854,16 +854,16 @@ git_tag_remote_push () {
   #   - If tag doesn't exist, returns GNUBS_TAG_ABSENT (1).
   #   - On error, returns GNUBS_FAILED (-1).
   git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
-  verify_retcode=$?
+  verify_result=$?
 
-  if [ ${verify_retcode} -eq ${GNUBS_FAILED} ]; then
+  if [ ${verify_result} -eq ${GNUBS_FAILED} ]; then
     >&2 echo "ERROR: git_tag_remote_verify_commit failed"
 
     exit 1
   fi
 
   if ${ACTION_DELETE}; then
-    if [ ${verify_retcode} -eq ${GNUBS_TAG_PRESENT} ]; then
+    if [ ${verify_result} -eq ${GNUBS_TAG_PRESENT} ]; then
       # Remove the tag. If the remote is on GitHub, this removes the lightweight
       # (non-annotated) release (e.g., from https://github.com/user/repo/releases)
       # that's automatically generated when the tag was initally applied.
@@ -873,13 +873,13 @@ git_tag_remote_push () {
     fi
 
     return
-  elif [ ${verify_retcode} -eq ${GNUBS_TAG_PRESENT} ]; then
+  elif [ ${verify_result} -eq ${GNUBS_TAG_PRESENT} ]; then
     # The tag is already pushed.
     echo "✓ Remote already up-to-date"
 
     return
   fi
-  # else, [ ${verify_retcode} -eq ${GNUBS_TAG_ABSENT} ], so push it.
+  # else, [ ${verify_result} -eq ${GNUBS_TAG_ABSENT} ], so push it.
 
   git_tvp_confirm_push "${version_tag}" "${remote_name}" \
     || return 1
