@@ -1375,16 +1375,28 @@ git_tvp_tag_vers_push () {
 
     # Tag the local commit (returns immediately if already tagged).
     git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
-  else
-    # This is ${ACTION_DELETE}.
 
-    git_tag_local_delete "${VERSION_TAG}"
+    # fi: ! ${ACTION_DELETE}
+  else
+    # MEH: I'm undecided if it's better to delete the local tag
+    # before or after deleting the remote tag... delete after
+    # lessens chance remote tag gets abandoned, is only reason
+    # I can think of, and it's not super compelling me.
+    #
+    #   # Here? Or below, after git_tag_remote_push?
+    #   git_tag_local_delete "${VERSION_TAG}"
   fi
 
   if [ "${remote_name}" != "-" ]; then
     # Delete and/or push the remote tag (and maybe the branch).
     git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
       "${remote_name}" "${remote_branch}" "${skip_push_branch}"
+  fi
+
+  # Delete locally last, so user doesn't abandon remote tag
+  # (well, abandon until the next pull).
+  if ${ACTION_DELETE}; then
+    git_tag_local_delete "${VERSION_TAG}"
   fi
 }
 
