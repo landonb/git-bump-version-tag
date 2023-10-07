@@ -747,7 +747,8 @@ git_tvp_confirm_next () {
 
 git_tvp_confirm_delete () {
   local version_tag="$1"
-  local remote_name="$2"
+  # local remote_name="$2"
+  local remote_name="${2:-localhost}"
 
   local msg="Okay to delete “${version_tag}”"
 
