@@ -1378,6 +1378,11 @@ git_tvp_tag_vers_push () {
 
     # fi: ! ${ACTION_DELETE}
   else
+    # Set tag_commit to tag commit ID, which we pass to remote delete tag
+    # so it can check for conflict (not that it really matters on delete,
+    # but could be interesting to user).
+    tag_commit="$(git_tag_commit_object "${VERSION_TAG}")"
+
     # MEH: I'm undecided if it's better to delete the local tag
     # before or after deleting the remote tag... delete after
     # lessens chance remote tag gets abandoned, is only reason
