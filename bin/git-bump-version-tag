@@ -725,6 +725,9 @@ insist_new_version_semver_compliant () {
 
   if [ -z "${semver}" ]; then
     >&2 echo "ERROR: The new version is not SemVer compliant: ${vless_version}"
+    # dunamai normalized the version value, and dunamai is never wrong
+    # (so if you see this message, it's prob in GITSMART_RE_SEMVERSPARTS).
+    >&2 echo "- Unexpected: You should never see this message!"
 
     exit 1
   fi
@@ -1278,10 +1281,6 @@ git_tvp_tag_vers_push () {
     fi
   fi
 
-  if ! ${ACTION_DELETE} || ${ACTION_PUSH}; then
-    insist_new_version_semver_compliant "${VERSION_TAG}"
-  fi
-
   # ***
 
   # Insist remote/branch HEAD unversioned or matches desired.
@@ -1409,14 +1408,7 @@ prepare_push () {
 
   # *** Normalize the version
 
-  local normal_vers
-  normal_vers="$(normalize_version "${VERSION_TAG}")"
-
-  if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
-    if git_tvp_confirm_normalize "${VERSION_TAG}" "${normal_vers}"; then
-      VERSION_TAG="${normal_vers}"
-    fi
-  fi
+  VERSION_TAG="$(normalize_version "${VERSION_TAG}")"
 
   # *** Verify version order integrity between commits before and commits after
 
@@ -1483,11 +1475,52 @@ prepare_push () {
 # might impress upon the build a version slightly different than what you
 # set. E.g., it'll change 1.1.1-a-1 to 1.1.1-a.1.
 #
+# dunamai version styles:
+# - PEP 440
+#   https://www.python.org/dev/peps/pep-0440
+# - Semantic Versioning
+#   https://semver.org)
+# - Haskell Package Versioning Policy
+#   https://pvp.haskell.org
+#
 # https://github.com/mtkennerly/poetry-dynamic-versioning
 # https://github.com/mtkennerly/dunamai
 
 normalize_version () {
   local orig_version="$1"
+
+  # `dunamai from git --style`: [--style {pep440,semver,pvp}]
+  local normal_style="semver"
+
+  if [ -f "$(git_project_root)/pyproject.toml" ]; then
+    normal_style="pep440"
+  fi
+
+  local normal_vers
+  normal_vers="$(normalize_version_with_style "${VERSION_TAG}" "${normal_style}")"
+
+  # Unnecessary double-check (before adding dunamai and PEP440 support, this
+  # script was the SemVer style enforcer; but now dunamai is in charge, so
+  # this check should never fail, and is being included mostly out of
+  # curiosity, but also as an excuse not to delete the callee).
+  if [ "${normal_style}" = "semver" ] \
+    && (! ${ACTION_DELETE} || ${ACTION_PUSH}) \
+  ; then
+    insist_new_version_semver_compliant "${VERSION_TAG}"
+  fi
+
+  if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
+    if git_tvp_confirm_normalize "${VERSION_TAG}" "${normal_vers}"; then
+      VERSION_TAG="${normal_vers}"
+    fi
+  fi
+
+  printf "%s" "${VERSION_TAG}"
+}
+
+normalize_version_with_style () {
+  local orig_version="$1"
+  local normal_style="$2"
 
   local prefixed_version="${orig_version}"
   if [ "${orig_version}" = "${orig_version#v}" ]; then
@@ -1505,9 +1538,17 @@ normalize_version () {
   git commit -m foo -q
   git tag "${prefixed_version}"
 
-  dunamai from git --style semver
+  # The two styles we support:
+  #  dunamai from git --style semver
+  #  dunamai from git --style pep440
+  dunamai from git --style "${normal_style}"
 
   cd - > /dev/null
+
+  # DEV: Uncomment to leave temp dir:
+  #
+  #   >&2 echo "${temp_dir}"
+  #   exit 1
 
   /bin/rm -rf "${temp_dir}"
 }
