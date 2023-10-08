@@ -1416,7 +1416,10 @@ prepare_push () {
   local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
   if [ -n "${commit_version}" ]; then
     if [ "${commit_version}" != "${VERSION_TAG}" ]; then
-      >&2 echo "ERROR: Commit is already versioned (${commit_version})," \
+      local refname="${tag_commit}"
+      [ "${remote_name}" != "-" ] && refname="${remote_name}/${remote_branch}"
+
+      >&2 echo "ERROR: Commit “${refname}” is already versioned (${commit_version})," \
         "and different than new version (${VERSION_TAG})"
 
       exit 1
