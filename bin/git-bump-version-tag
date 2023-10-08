@@ -656,7 +656,7 @@ is_known_commit_sha () {
 
   [ "${word}" = "HEAD" ] && return 0
 
-  git rev-parse "${word}" 2> /dev/null || return 1
+  git rev-parse "${word}" > /dev/null 2>&1 || return 1
 
   [[ "$(git rev-parse "${word}")" = "${word}"* ]]
 }
