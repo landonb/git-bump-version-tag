@@ -85,8 +85,6 @@ ARGUMENTS:
             - Useful when versioning for the first time (though
               bump specifiers will bump from 0, so they work, too)
             - Useful for specifying a uniquely-named prerelease version
-            - Can be specified with the 'delete' option but is not
-              allowed with any other option
 
 - <REMOTE>  Specify which remote to use
             - If not specified, will default to the remote specified
