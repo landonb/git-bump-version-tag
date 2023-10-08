@@ -33,6 +33,7 @@ OPTIONS: One or more of:
 
   [s|-s|same
   |d|-d|delete
+  |P|-P|push
   |M|-M|major
   |m|-m|minor
   |p|-p|patch
@@ -47,6 +48,8 @@ OPTIONS: One or more of:
 - d, -d, delete  Delete latest version tag (local and remote)
                  - Useful if you messed up — but it's on you to ensure it's
                    not too late to delete a tag you previously published!
+
+- P, -P, push    Push tag (default action when not 'delete')
 
 - M, -M, major   Bump major version by one
 
@@ -421,6 +424,7 @@ resolve_version_bump () {
 
   VERSION_TAG=""
   ACTION_DELETE=false
+  ACTION_PUSH=false
   REMOTE_NAME=""
   TAG_COMMIT=""
 
@@ -488,6 +492,9 @@ resolve_version_bump () {
           ACTION_DELETE=true
           VERSION_TAG="${curr_version}"
           ;;
+        P | -P | push)
+          ACTION_PUSH=true
+          ;;
         h | -h | help | --help)
           >&2 echo "${USAGE}"
 
@@ -506,6 +513,7 @@ resolve_version_bump () {
                  VERSION_TAG="${curr_version}" ;;
               d) ACTION_DELETE=true;
                  VERSION_TAG="${curr_version}" ;;
+              P) ACTION_PUSH=true ;;
               M) bump_major ;;
               m) bump_minor ;;
               p) bump_patch ;;
@@ -813,14 +821,16 @@ git_tag_local_add () {
   local tag_commit="$2"
   local curr_version="$3"
 
-  if [ "${version_tag}" = "${curr_version}" ]; then
-    echo "✓ Local tag exists"
+  if ! "${ACTION_PUSH}"; then
+    if [ "${version_tag}" = "${curr_version}" ]; then
+      echo "✓ Local tag exists"
 
-    return 0
+      return 0
+    fi
+
+    git_tvp_confirm_next "${version_tag}" "${curr_version}" \
+      || return 1
   fi
-
-  git_tvp_confirm_next "${version_tag}" "${curr_version}" \
-    || return 1
 
   # Note that this command tags HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
@@ -835,10 +845,31 @@ git_tag_local_add () {
 git_tag_local_delete () {
   local version_tag="$1"
 
+  if ! git_tag_exists "${version_tag}"; then
+    echo "✓ Missing local tag"
+
+    return
+  fi
+
   git_tvp_confirm_delete "${version_tag}" "" \
     || return 1
 
   echo_or_eval git tag -d "${version_tag}"
+}
+
+github_release_delete () {
+  local version_tag="$1"
+
+  if ! gh release view "${version_tag}" > /dev/null 2>&1; then
+    return
+  fi
+
+  # Don't need to prompt: `gh` has its own.
+  #
+  #  git_tvp_confirm_delete "${version_tag}" "GitHub releases" \
+  #    || return 1
+
+  gh release delete "${version_tag}"
 }
 
 git_tag_remote_delete () {
@@ -915,6 +946,7 @@ git_tag_remote_push () {
       # that's automatically generated when the tag was initally applied.
       # - At least that's what I've observed: I'm not quite sure how it works,
       #   or where it's documented, just that deleting the tag clears the entry.
+      github_release_delete "${version_tag}"
       git_tag_remote_delete "${version_tag}" "${remote_name}"
     fi
 
@@ -1191,6 +1223,7 @@ git_tvp_tag_vers_push () {
 
   local VERSION_TAG=""
   local ACTION_DELETE=false
+  local ACTION_PUSH=false
   local REMOTE_NAME=""
   local TAG_COMMIT=""
   # If version specified, fails if not greater than current version.
@@ -1231,7 +1264,7 @@ git_tvp_tag_vers_push () {
     fi
   fi
 
-  if ! ${ACTION_DELETE}; then
+  if ! ${ACTION_DELETE} || ${ACTION_PUSH}; then
     insist_new_version_semver_compliant "${VERSION_TAG}"
   fi
 
@@ -1297,97 +1330,42 @@ git_tvp_tag_vers_push () {
     fi
   fi
 
+  local default_tag_commit="${tag_commit}"
+
   # ***
 
+  push_or_delete
+
+  if ${ACTION_DELETE} && ${ACTION_PUSH}; then
+    ACTION_DELETE=false
+    # ACTION_PUSH=false
+
+    tag_commit="${default_tag_commit}"
+
+    push_or_delete
+  fi
+
+  # ***
+
+  git_pop_wip_commit_maybe "${_WIPPED}"
+}
+
+# ***
+
+push_or_delete () {
   local skip_push_branch=true
 
   if ! ${ACTION_DELETE}; then
-    skip_push_branch=false
-
-    if [ "${remote_name}" != "-" ]; then
-      if [ "${tag_commit}" = "${remote_head_sha}" ]; then
-        # Don't need to push this commit, which is remote branch HEAD.
-        skip_push_branch=true
-      fi
-    fi
-
-    # *** Verify version order integrity between commits before and commits after
-
-    # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
-    local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
-    if [ -n "${commit_version}" ]; then
-      if [ "${commit_version}" != "${VERSION_TAG}" ]; then
-        >&2 echo "ERROR: Commit is already versioned (${commit_version})," \
-          "and different than new version (${VERSION_TAG})"
-
-        exit 1
-      fi
-
-      # So that git_tag_local_add doesn't add same tag again.
-      curr_version="${commit_version}"
-    else
-      if [ "${tag_commit}" = "${local_head_sha}" ]; then
-        insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}"
-      else
-        # Means we're tagging an old commit.
-        # MEH: I don't know why we support this. Maybe I just wanted to
-        #      write hundreds of lines of more code to maintain.
-        # - Seems like a weird use case to support: Tagging old commit.
-
-        local latest_smallest_version
-        # This includes ${tag_commit} tags, but we checked that case
-        # earlier, so we know ${tag_commit} is not versioned here.
-        latest_smallest_version="$(git_smallest_version_tag "${tag_commit}")"
-        insist_prev_version_lt_later_version \
-          "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}"
-
-        local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
-        insist_prev_version_gt_earlier_version \
-          "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
-      fi
-    fi
-
-    insist_tag_commit_unversioned_or_same_version "${VERSION_TAG}" "${tag_commit}"
-
-    # *** Verify version order integrity between local and remote repos
-
-    if [ "${remote_name}" != "-" ]; then
-      if ! ${skip_push_branch}; then
-        # We know ${tag_commit} != ${remote_head_sha} because ! ${skip_push_branch}.
-
-        # Check if the local branch has more commits than the remote branch.
-        if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
-          # Local ahead of remote.
-          if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
-            >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
-
-            exit 1
-          fi
-        fi
-        # else, remote ahead of local. Means we're tagging an old commit.
-      fi
-      # else, means we're not moving remote branch HEAD.
-    fi
-
-    # ***
+    # Sets skip_push_branch and curr_version.
+    prepare_push
 
     # Tag the local commit (returns immediately if already tagged).
     git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
-
-    # fi: ! ${ACTION_DELETE}
   else
     # Set tag_commit to tag commit ID, which we pass to remote delete tag
     # so it can check for conflict (not that it really matters on delete,
     # but could be interesting to user).
     tag_commit="$(git_tag_commit_object "${VERSION_TAG}")"
-
-    # MEH: I'm undecided if it's better to delete the local tag
-    # before or after deleting the remote tag... delete after
-    # lessens chance remote tag gets abandoned, is only reason
-    # I can think of, and it's not super compelling me.
-    #
-    #   # Here? Or below, after git_tag_remote_push?
-    #   git_tag_local_delete "${VERSION_TAG}"
   fi
 
   if [ "${remote_name}" != "-" ]; then
@@ -1400,6 +1378,77 @@ git_tvp_tag_vers_push () {
   # (well, abandon until the next pull).
   if ${ACTION_DELETE}; then
     git_tag_local_delete "${VERSION_TAG}"
+  fi
+}
+
+# ***
+
+prepare_push () {
+  skip_push_branch=false
+
+  if [ "${remote_name}" != "-" ]; then
+    if [ "${tag_commit}" = "${remote_head_sha}" ]; then
+      # Don't need to push this commit, which is remote branch HEAD.
+      skip_push_branch=true
+    fi
+  fi
+
+  # *** Verify version order integrity between commits before and commits after
+
+  # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
+  local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+  if [ -n "${commit_version}" ]; then
+    if [ "${commit_version}" != "${VERSION_TAG}" ]; then
+      >&2 echo "ERROR: Commit is already versioned (${commit_version})," \
+        "and different than new version (${VERSION_TAG})"
+
+      exit 1
+    fi
+
+    # So that git_tag_local_add doesn't add same tag again.
+    curr_version="${commit_version}"
+  else
+    if [ "${tag_commit}" = "${local_head_sha}" ]; then
+      insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}"
+    else
+      # Means we're tagging an old commit.
+      # MEH: I don't know why we support this. Maybe I just wanted to
+      #      write hundreds of lines of more code to maintain.
+      # - Seems like a weird use case to support: Tagging old commit.
+
+      local latest_smallest_version
+      # This includes ${tag_commit} tags, but we checked that case
+      # earlier, so we know ${tag_commit} is not versioned here.
+      latest_smallest_version="$(git_smallest_version_tag "${tag_commit}")"
+      insist_prev_version_lt_later_version \
+        "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}"
+
+      local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
+      insist_prev_version_gt_earlier_version \
+        "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
+    fi
+  fi
+
+  insist_tag_commit_unversioned_or_same_version "${VERSION_TAG}" "${tag_commit}"
+
+  # *** Verify version order integrity between local and remote repos
+
+  if [ "${remote_name}" != "-" ]; then
+    if ! ${skip_push_branch}; then
+      # We know ${tag_commit} != ${remote_head_sha} because ! ${skip_push_branch}.
+
+      # Check if the local branch has more commits than the remote branch.
+      if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
+        # Local ahead of remote.
+        if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
+          >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
+
+          exit 1
+        fi
+      fi
+      # else, remote ahead of local. Means we're tagging an old commit.
+    fi
+    # else, means we're not moving remote branch HEAD.
   fi
 }
 
