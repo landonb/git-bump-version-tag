@@ -741,7 +741,11 @@ git_tvp_confirm_next () {
 
   local do_what_now="start versioning at"
   if [ -n "${curr_version}" ]; then
-    do_what_now="bump “${curr_version}” →"
+    if [ -n "${TAG_COMMIT}" ]; then
+      do_what_now="backfill tag"
+    else
+      do_what_now="bump “${curr_version}” →"
+    fi
   fi
 
   local msg="Okay to ${do_what_now} “${version_tag}”"
