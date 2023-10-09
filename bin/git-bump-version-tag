@@ -683,21 +683,28 @@ starts_with_alphanum () {
 insist_next_version_gt_curr_version () {
   local next_version="$1"
   local curr_version="$2"
+  local tag_commit="$3"
+
+  local is_newer_version=true
+
+  insist_prev_version_gt_earlier_version \
+    "${next_version}" "${curr_version}" "${tag_commit}" \
+    > /dev/null 2>&1 \
+      || is_newer_version=false
 
   # Optional: 'pep440cmp'
   if ! command -v pep440cmp > /dev/null; then
-    >&2 "ALERT: Cannot verify next version greater than current version."
-    >&2 "- Please install pep440cmp, e.g.,"
-    >&2 "    pipx install pep440-version-compare-cli"
-    >&2 "- CXREF:"
-    >&2 "    https://github.com/hotoffthehamster/pep440-version-compare-cli"
-
-    return 0
+    if ${GIT_BUMP_VERSION_TAG_PEP400CMP_ENABLE:-false}; then
+      >&2 echo "ALERT: Cannot verify next version greater than current version."
+      >&2 echo "- Please install pep440cmp, e.g.,"
+      >&2 echo "    pipx install pep440-version-compare-cli"
+      >&2 echo "- CXREF:"
+      >&2 echo "    https://github.com/hotoffthehamster/pep440-version-compare-cli"
+    fi
+  else
+    pep440cmp "${next_version}" gt "${curr_version}" > /dev/null \
+      || is_newer_version=false
   fi
-
-  local is_newer_version=true
-  pep440cmp "${next_version}" gt "${curr_version}" > /dev/null \
-    || is_newer_version=false
 
   if ! ${is_newer_version}; then
     if ! ${ACTION_DELETE}; then
@@ -1457,7 +1464,7 @@ prepare_push () {
     curr_version="${commit_version}"
   else
     if [ "${tag_commit}" = "${local_head_sha}" ]; then
-      insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}"
+      insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}" "${tag_commit}"
     else
       # Means we're tagging an old commit.
       # MEH: I don't know why we support this. Maybe I just wanted to
