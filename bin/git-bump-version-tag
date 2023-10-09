@@ -322,6 +322,11 @@ periodically_fetch () {
 latest_version_parts () {
   local curr_version="$1"
 
+  # See also: GITSMART_RE_SEMVERSPARTS. Here we use looser regex so we
+  # can read any style version and increment any part of it. Then later
+  # we'll use the dunamai library to normalize the version according to
+  # style.
+
   # Note the '!' in '\1!', so that `read` parses the string correctly when
   # there is no v-prefix (i.e., ensure there's a word there for `read`).
   # - Use perl, not sed, because there's a Perl-only .*? non-greedy in the regex.
