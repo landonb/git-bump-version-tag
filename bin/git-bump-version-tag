@@ -747,7 +747,7 @@ insist_new_version_semver_compliant () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-git_tvp_confirm_next () {
+git_bump_confirm_next () {
   local version_tag="$1"
   local curr_version="$2"
 
@@ -770,7 +770,7 @@ git_tvp_confirm_next () {
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
 
-git_tvp_confirm_normalize () {
+git_bump_confirm_normalize () {
   local version_tag="$1"
   local normal_vers="$2"
 
@@ -784,7 +784,7 @@ git_tvp_confirm_normalize () {
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
 
-git_tvp_confirm_delete () {
+git_bump_confirm_delete () {
   local version_tag="$1"
   # local remote_name="$2"
   local remote_name="${2:-localhost}"
@@ -803,7 +803,7 @@ git_tvp_confirm_delete () {
   [ "${the_choice}" != "y" ] && return 1 || return 0
 }
 
-git_tvp_confirm_push () {
+git_bump_confirm_push () {
   local version_tag="$1"
   local remote_name="$2"
 
@@ -819,9 +819,7 @@ git_tvp_confirm_push () {
 
 # ***
 
-# WORDS/2023-10-05: 'tvp' is old abbrev: git_tvp_tag_vers_push, but
-#                   the script since renamed bump-version-tag, 'bvt'.
-git_bvt_print_conflict_alert () {
+git_bump_print_conflict_alert () {
   local version_tag="$1"
   local remote_name="$2"
   local tag_commit="$3"
@@ -861,7 +859,7 @@ git_tag_local_add () {
       return 0
     fi
 
-    git_tvp_confirm_next "${version_tag}" "${curr_version}" \
+    git_bump_confirm_next "${version_tag}" "${curr_version}" \
       || return 1
   fi
 
@@ -884,7 +882,7 @@ git_tag_local_delete () {
     return
   fi
 
-  git_tvp_confirm_delete "${version_tag}" "" \
+  git_bump_confirm_delete "${version_tag}" "" \
     || return 1
 
   echo_or_eval git tag -d "${version_tag}"
@@ -899,7 +897,7 @@ github_release_delete () {
 
   # Don't need to prompt: `gh` has its own.
   #
-  #  git_tvp_confirm_delete "${version_tag}" "GitHub releases" \
+  #  git_bump_confirm_delete "${version_tag}" "GitHub releases" \
   #    || return 1
 
   gh release delete "${version_tag}"
@@ -909,7 +907,7 @@ git_tag_remote_delete () {
   local version_tag="$1"
   local remote_name="$2"
 
-  git_tvp_confirm_delete "${version_tag}" "${remote_name}" \
+  git_bump_confirm_delete "${version_tag}" "${remote_name}" \
     || return 1
 
   # (lb): I realize there's a less obtuse syntax to delete tags, e.g.,
@@ -960,7 +958,7 @@ git_tag_remote_push () {
 
     exit 1
   elif [ ${verify_result} -eq ${GNUBS_TAG_CONFLICT} ]; then
-    git_bvt_print_conflict_alert "${version_tag}" "${remote_name}" "${tag_commit}"
+    git_bump_print_conflict_alert "${version_tag}" "${remote_name}" "${tag_commit}"
 
     # Return now if user declines delete, or if delete fails, so we don't
     # have to further process GNUBS_TAG_CONFLICT state.
@@ -999,7 +997,7 @@ git_tag_remote_push () {
 
   # ***
 
-  git_tvp_confirm_push "${version_tag}" "${remote_name}" \
+  git_bump_confirm_push "${version_tag}" "${remote_name}" \
     || return 1
 
   # If user specified "HEAD" <COMMIT>, push that, too.
@@ -1252,7 +1250,7 @@ git_pop_wip_commit_maybe () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-git_tvp_tag_vers_push () {
+git_bump_tag_vers_push () {
   # Passed args ($@) from CLI will be passed to and parsed by
   # must_resolve_new_version_tag.
 
@@ -1548,7 +1546,7 @@ normalize_version () {
   fi
 
   if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
-    if git_tvp_confirm_normalize "${VERSION_TAG}" "${normal_vers}"; then
+    if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}"; then
       VERSION_TAG="${normal_vers}"
     fi
   fi
@@ -1605,7 +1603,7 @@ trap exit_cleanup EXIT
 main () {
   source_deps "${BASH_SOURCE[0]}" || exit 1
 
-  git_tvp_tag_vers_push "$@"
+  git_bump_tag_vers_push "$@"
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
