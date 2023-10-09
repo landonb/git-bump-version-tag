@@ -1127,13 +1127,7 @@ insist_prev_version_lt_later_version () {
       return 0
     fi
   else
-    local smaller_version="$( \
-      echo -e "${prev_version}\n${later_version}" \
-        | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \1\2.\3.\5\6\7/" \
-        | command sort -k1,1 -k2,2n \
-        | command head -n1 \
-        | command sed -E "s/^[^,]*, [^,]*, //"
-    )"
+    local smaller_version="$(print_smaller_vers_for_same_patch "${prev_version}" "${later_version}")"
 
     if [ "${smaller_version}" = "${prev_version}" ]; then
       return 0
@@ -1174,13 +1168,7 @@ insist_prev_version_gt_earlier_version () {
       return 0
     fi
   else
-    local smaller_version="$( \
-      echo -e "${prev_version}\n${earlier_version}" \
-        | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \1\2.\3.\5\6\7/" \
-        | command sort -k1,1 -k2,2n \
-        | command head -n1 \
-        | command sed -E "s/^[^,]*, [^,]*, //"
-    )"
+    local smaller_version="$(print_smaller_vers_for_same_patch "${prev_version}" "${earlier_version}")"
 
     if [ "${smaller_version}" = "${earlier_version}" ]; then
       return 0
@@ -1193,6 +1181,21 @@ insist_prev_version_gt_earlier_version () {
   >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
 
   exit 1
+}
+
+# ***
+
+# Assumes version through patch level matches, so that it can sort by pre-release parts.
+print_smaller_vers_for_same_patch () {
+  local prev_version="$1"
+  local later_version="$2"
+
+  echo -e "${prev_version}\n${later_version}" \
+    | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
+    | command sed '/^$/d' \
+    | command sort -k1,1r -k2,2n \
+    | command head -n1 \
+    | command sed -E "s/^[^,]*, [^,]*, //"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
