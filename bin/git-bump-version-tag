@@ -812,9 +812,9 @@ git_bvt_print_conflict_alert () {
 
   echo
   echo "🚨 ATTENTION 🚨: The tag ‘${version_tag}’ on remote ‘${remote_name}’"
-  echo "                 refers to a different commit than it does locally:"
+  echo "                 refers to a different commit than the local target:"
   echo
-  echo "    local  tag ref  ${tag_commit}"
+  echo "    target tag ref  ${tag_commit}"
   echo "    remote tag ref  ${GNUBS_TAG_COMMIT_OBJECT:-<missing-GNUBS_TAG_COMMIT_OBJECT>}"
   echo
   #
