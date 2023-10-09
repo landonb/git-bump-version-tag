@@ -1110,6 +1110,12 @@ insist_prev_version_lt_later_version () {
     return 0
   fi
 
+  if [ "${prev_version}" = "${later_version}" ]; then
+    >&2 echo "ERROR: Version “${prev_version}” already exists."
+
+    exit 1
+  fi
+
   # 'pep440cmp' is optional, but we can do this without it.
 
   local prev_patch="$( \
@@ -1150,6 +1156,15 @@ insist_prev_version_gt_earlier_version () {
   local prev_version="$1"
   local earlier_version="$2"
   local tag_commit="$3"
+
+  # Not necessary/won't hit, because `insist_prev_version_lt_later_version`
+  # did it first. But just so you know this case won't happen.
+  #
+  if [ "${prev_version}" = "${earlier_version}" ]; then
+    >&2 echo "ERROR: Version “${prev_version}” already exists."
+
+    exit 1
+  fi
 
   # 'pep440cmp' is optional, but we can do this without it.
 
