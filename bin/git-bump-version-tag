@@ -325,7 +325,7 @@ periodically_fetch () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-latest_version_parts () {
+parse_version_parts () {
   local curr_version="$1"
 
   # See also: GITSMART_RE_SEMVERSPARTS. Here we use looser regex so we
@@ -361,7 +361,7 @@ resolve_version_bump () {
   shift
 
   local partsstr
-  partsstr="$(latest_version_parts "${curr_version}")"
+  partsstr="$(parse_version_parts "${curr_version}")"
 
   local vprefix major minor patch prerelease finalnum
 
