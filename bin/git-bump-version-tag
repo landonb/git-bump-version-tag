@@ -762,7 +762,7 @@ git_bump_confirm_next () {
   local version_tag="$1"
   local curr_version="$2"
 
-  local do_what_now="start versioning at"
+  local do_what_now="create first version tag at"
   if [ -n "${curr_version}" ]; then
     if [ -n "${TAG_COMMIT}" ]; then
       do_what_now="backfill tag"
@@ -784,8 +784,9 @@ git_bump_confirm_next () {
 git_bump_confirm_normalize () {
   local version_tag="$1"
   local normal_vers="$2"
+  local normal_style="$3"
 
-  local msg="Okay to normalize “${version_tag}” → “${normal_vers}”"
+  local msg="Okay to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
 
   local the_choice
   the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
@@ -1585,7 +1586,7 @@ normalize_version () {
   fi
 
   if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
-    if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}"; then
+    if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
       VERSION_TAG="${normal_vers}"
     fi
   fi
