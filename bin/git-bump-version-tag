@@ -1293,10 +1293,37 @@ git_bump_tag_vers_push () {
   # Unless skipping remote push, warn if no remote; maybe fetch;
   # and recalculate next version if new version tag was fetched.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    # Default to the remote tracking branch remote, or fallback to "origin".
+    # Default to the remote tracking branch remote.
     [ -z "${remote_name}" ] && remote_name="$(git_upstream_parse_remote_name)"
-    [ -z "${remote_name}" ] && remote_name="origin"
+    # If no such tracking branch, use sole remote if only one set.
+    if [ -z "${remote_name}" ]; then
+      if [ -n "$(git remote -v)" ]; then
+        local push_remotes
+        push_remotes="$(git remote -v | grep -e ' (push)$')"
 
+        local num_remotes
+        num_remotes=$(echo "${push_remotes}" | wc -l)
+
+        if [ ${num_remotes} -eq 1 ]; then
+          # Just one remote; use it.
+          remote_name="$(echo "${push_remotes}" | sed 's/^\([^[:space:]]\+\).*/\1/')"
+        else
+          # This is the case: [ ${num_remotes} -gt 1 ]
+          >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
+          >&2 echo "- Please set a remote tracking branch and try again."
+
+          exit 1
+        fi
+      else
+        # Seems unnecessary:
+        #   >&2 echo "BWARE: There are no remotes. You can only version locally"
+        # Skip remote dealings.
+        remote_name="${BUMP_SKIP_REMOTE}"
+      fi
+    fi
+  fi
+
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # We don't necessarily care if the remote doesn't exist — we could still
     # tag the local branch, and then fail on/before the git-push — but this
     # also seems like an issue the user should be made to resolve first. If
