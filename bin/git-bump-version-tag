@@ -159,6 +159,10 @@ source_deps () {
   # Optional: 'pep440cmp'.
   # https://github.com/hotoffthehamster/pep440-version-compare-cli
 
+  # Need Dunamai to normalize for SemVer or PEP 440.
+  # CXREF: https://github.com/mtkennerly/dunamai
+  insist_cmd 'dunamai'
+
   # Need Perl for fancy SemVer regex.
   insist_cmd 'perl'
 
