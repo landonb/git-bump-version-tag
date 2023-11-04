@@ -773,6 +773,65 @@ insist_new_version_semver_compliant () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# Assume *Yes!* when called without stdin attached.
+#
+# - When this script is run from a terminal, stdin [ -t 0 ] is open and
+#   connected to a terminal; but stdout [ -t 1 ] is not connected.
+# - When tested directly from the console, both 0 & 1 are terminaled.
+# - When run from GitHub Actions, neither are attached to a terminal.
+# Short answer: If there's no stdin, we cannot very well be told what to do.
+
+GIT_BUMP_INBIHIT_NO_TTY_WARNING=${GIT_BUMP_INBIHIT_NO_TTY_WARNING:-false}
+
+ask_yesnoskip_maybe () {
+  local the_ask="$1"
+  local default_choice="$2"
+
+  isa_tty () { [ -t 0 ]; }
+
+  local retcode=0
+
+  if isa_tty; then
+    THE_CHOICE=$(SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}")
+    retcode=$?
+  else
+    # Seems tedious, but we'll check if stdin has anything queued,
+    # e.g., so user can pipe answers (not that I can think why anyone
+    # would ever want to!). Otherwise we'll auto-yes all prompts, e.g.,
+    # because user trusts us and has git-bump wired into a CI release
+    # workflow.
+
+    # WEIRD: -t 0 doesn't return anything when data being piped, e.g.,
+    #   echo "N" | git bump l
+    # - So use a nonzero timeout.
+    local input_line
+    read -t 0.01 input_line
+
+    if [ -z "${input_line}" ]; then
+      if ! ${GIT_BUMP_INBIHIT_NO_TTY_WARNING}; then
+        # Only print it once.
+        GIT_BUMP_INBIHIT_NO_TTY_WARNING=true
+
+        >&2 echo "OHYEA: Enabling auto-yesser (no tty or input on stdin)"
+      fi
+
+      >&2 echo "Auto-yessing: ${the_ask}? [Y/n/s] Y"
+
+      THE_CHOICE="y"
+    else
+      THE_CHOICE=$( \
+        SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}" "${input_line}"
+      )
+      retcode=$?
+
+      # Print what we read from the pipe to show input, and to wrap output.
+      >&2 echo "${input_line}"
+    fi
+  fi
+
+  return ${retcode}
+}
+
 git_bump_confirm_next () {
   local version_tag="$1"
   local curr_version="$2"
@@ -787,13 +846,13 @@ git_bump_confirm_next () {
   fi
 
   local msg="Okay to ${do_what_now} “${version_tag}”"
-  local the_choice
 
-  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
+  local THE_CHOICE
+  ask_yesnoskip_maybe "${msg}" "Y"
 
   [ $? -ne 0 ] && exit 1
 
-  [ "${the_choice}" != "y" ] && return 1 || return 0
+  [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
 
 git_bump_confirm_normalize () {
@@ -803,12 +862,12 @@ git_bump_confirm_normalize () {
 
   local msg="Okay to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
 
-  local the_choice
-  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
+  local THE_CHOICE
+  ask_yesnoskip_maybe "${msg}" "Y"
 
   [ $? -ne 0 ] && exit 1
 
-  [ "${the_choice}" != "y" ] && return 1 || return 0
+  [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
 
 git_bump_confirm_delete () {
@@ -822,12 +881,12 @@ git_bump_confirm_delete () {
     msg="${msg} from “${remote_name}”"
   fi
 
-  local the_choice
-  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
+  local THE_CHOICE
+  ask_yesnoskip_maybe "${msg}" "Y"
 
   [ $? -ne 0 ] && exit 1
 
-  [ "${the_choice}" != "y" ] && return 1 || return 0
+  [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
 
 git_bump_confirm_push () {
@@ -836,12 +895,12 @@ git_bump_confirm_push () {
 
   local msg="Okay to push “${version_tag}” to “${remote_name}”"
 
-  local the_choice
-  the_choice=$(SKIP_PROMPT_NL=true ask_yesnoskip "${msg}" "Y")
+  local THE_CHOICE
+  ask_yesnoskip_maybe "${msg}" "Y"
 
   [ $? -ne 0 ] && exit 1
 
-  [ "${the_choice}" != "y" ] && return 1 || return 0
+  [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
 
 # ***
