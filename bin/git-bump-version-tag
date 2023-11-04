@@ -17,6 +17,8 @@ BUMP_REMOTE_BRANCH_NAME="${BUMP_REMOTE_BRANCH_NAME:-release}"
 
 BUMP_VERBATIM="${BUMP_VERBATIM:-false}"
 
+BUMP_SKIP_REMOTE="-"
+
 # USYNC: Same environ name as what git-put-wise uses.
 # CXREF: https://github.com/DepoXy/git-put-wise#🥨
 #   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
@@ -651,7 +653,7 @@ is_known_remote () {
   local word="$1"
 
   # "-" means skip remote tag push.
-  [ "${word}" = "-" ] && return 0
+  [ "${word}" = "${BUMP_SKIP_REMOTE}" ] && return 0
 
   starts_with_alphanum "${word}" || return 1
 
@@ -1290,7 +1292,7 @@ git_bump_tag_vers_push () {
 
   # Unless skipping remote push, warn if no remote; maybe fetch;
   # and recalculate next version if new version tag was fetched.
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Default to the remote tracking branch remote, or fallback to "origin".
     [ -z "${remote_name}" ] && remote_name="$(git_upstream_parse_remote_name)"
     [ -z "${remote_name}" ] && remote_name="origin"
@@ -1298,7 +1300,7 @@ git_bump_tag_vers_push () {
     # We don't necessarily care if the remote doesn't exist — we could still
     # tag the local branch, and then fail on/before the git-push — but this
     # also seems like an issue the user should be made to resolve first. If
-    # they really don't care, they can re-run the command with '-' as the
+    # they really don't care, they can re-run the command with "-" as the
     # remote name to skip remote functionality. But really they'll probably
     # want to fix the local repo remote, or fix their bump-version-tags arg.
     must_remote_exists "${remote_name}"
@@ -1322,7 +1324,7 @@ git_bump_tag_vers_push () {
 
   # Insist remote/branch HEAD unversioned or matches desired.
   local remote_branch
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
       || exit 1
 
@@ -1336,14 +1338,14 @@ git_bump_tag_vers_push () {
   local tag_commit="${TAG_COMMIT}"
 
   local remote_head_sha
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     remote_head_sha="$(
       git_remote_branch_object_name "${remote_name}" "${remote_branch}"
     )"
   fi
 
   if [ -z "${tag_commit}" ]; then
-    if [ "${remote_name}" != "-" ]; then
+    if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
       tag_commit="${remote_head_sha}"
     else
       tag_commit="HEAD"
@@ -1353,7 +1355,7 @@ git_bump_tag_vers_push () {
   local local_head_sha="$(git_HEAD_commit_sha)"
 
   if [ "${tag_commit}" = "HEAD" ]; then
-    if [ "${remote_name}" != "-" ]; then
+    if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
       # Ensure branch names match (don't let user accidentally tag and
       # push wrong branch to remote).
       local local_branch="$(git_branch_name)"
@@ -1418,7 +1420,7 @@ push_or_delete () {
     tag_commit="$(git_tag_commit_object "${VERSION_TAG}")"
   fi
 
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Delete and/or push the remote tag (and maybe the branch).
     git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
       "${remote_name}" "${remote_branch}" "${skip_push_branch}"
@@ -1436,7 +1438,7 @@ push_or_delete () {
 prepare_push () {
   skip_push_branch=false
 
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     if [ "${tag_commit}" = "${remote_head_sha}" ]; then
       # Don't need to push this commit, which is remote branch HEAD.
       skip_push_branch=true
@@ -1454,7 +1456,8 @@ prepare_push () {
   if [ -n "${commit_version}" ]; then
     if [ "${commit_version}" != "${VERSION_TAG}" ]; then
       local refname="${tag_commit}"
-      [ "${remote_name}" != "-" ] && refname="${remote_name}/${remote_branch}"
+      [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
+        && refname="${remote_name}/${remote_branch}"
 
       >&2 echo "ERROR: Commit “${refname}” is already versioned (${commit_version})," \
         "and different than new version (${VERSION_TAG})"
@@ -1490,7 +1493,7 @@ prepare_push () {
 
   # *** Verify version order integrity between local and remote repos
 
-  if [ "${remote_name}" != "-" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     if ! ${skip_push_branch}; then
       # We know ${tag_commit} != ${remote_head_sha} because ! ${skip_push_branch}.
 
