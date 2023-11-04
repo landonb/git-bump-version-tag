@@ -69,6 +69,8 @@ OPTIONS: One or more of:
                    - BUMP_PRERELEASE_BASE is ignored if the previous tag
                      is already prerelease, and its value is used instead
 
+- l, -l, least   Bump least part by one (either patch or pre-release)
+
 - v, -v, v-pre   Use \"v\" tag prefix
                  - Adds v-prefix if previous tag was not v-prefixed
 
@@ -370,6 +372,8 @@ resolve_version_bump () {
   # ${DRY_RUN} && echo "read: v:${vprefix} M:${major} m:${minor}" \
   #   "p:${patch} a:${prerelease} n:${finalnum} (${partsstr})"
 
+  local was_prerelease=$(test -n "${prerelease}" && echo true || echo false)
+
   # Strip the '!' from the v-prefix (which was used to support `read`).
   vprefix="${vprefix%!}"
 
@@ -432,6 +436,14 @@ resolve_version_bump () {
       finalnum="1"
     else
       let 'finalnum += 1'
+    fi
+  }
+
+  bump_least () {
+    if ${was_prerelease}; then
+      bump_alpha
+    else
+      bump_patch
     fi
   }
 
@@ -521,6 +533,7 @@ resolve_version_bump () {
         m | -m | minor) bump_minor ;;
         p | -p | patch) bump_patch ;;
         a | -a | alpha) bump_alpha ;;
+        l | -l | least) bump_least ;;
         v | -v | v-pre) add_prefix ;;
         V | -V | v-del) del_prefix ;;
         *)
@@ -535,6 +548,7 @@ resolve_version_bump () {
               m) bump_minor ;;
               p) bump_patch ;;
               a) bump_alpha ;;
+              l) bump_least ;;
               v) add_prefix ;;
               V) del_prefix ;;
               *)
@@ -625,7 +639,7 @@ resolve_version_bump () {
 
       if [ ${bumps_count} -eq 0 ]; then
         # Should be impossible path, because ${part_or_version} defaults 'patch'.
-        >&2 echo "ERROR: Please specify a bump part (M|m|p|a) or choose same (s)."
+        >&2 echo "ERROR: Please specify a bump part (M|m|p|a|l) or choose same (s)."
 
         exit 1
       elif ${warn_too_many}; then
