@@ -411,7 +411,12 @@ resolve_version_bump () {
     bump_bumps_count
     ! ${bump_verbatim} && bpatch=true && return
 
-    let 'patch += 1'; prerelease=; finalnum=;
+    # Only bump patch if no current alpha. Otherwise just drop alpha.
+    if [ -z "${prerelease}" ]; then
+      let 'patch += 1'
+    fi
+    prerelease=
+    finalnum=
     bumped_patch_or_better=true
   }
 
