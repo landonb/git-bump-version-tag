@@ -438,6 +438,7 @@ resolve_version_bump () {
   local skip_opts=0
   local n_extra_args=0
 
+  # USYNC: version_tag_environs
   VERSION_TAG=""
   ACTION_DELETE=false
   ACTION_PUSH=false
@@ -1283,6 +1284,7 @@ git_bump_tag_vers_push () {
   # - It's not guaranteed to be SemVer compliant.
   local curr_version="$(git_largest_version_tag)"
 
+  # USYNC: version_tag_environs
   local VERSION_TAG=""
   local ACTION_DELETE=false
   local ACTION_PUSH=false
