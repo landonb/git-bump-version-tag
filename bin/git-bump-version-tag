@@ -713,7 +713,7 @@ insist_next_version_gt_curr_version () {
 
   local is_newer_version=true
 
-  insist_prev_version_gt_earlier_version \
+  is_prev_version_gt_earlier_version \
     "${next_version}" "${curr_version}" "${tag_commit}" \
     > /dev/null 2>&1 \
       || is_newer_version=false
@@ -1249,7 +1249,7 @@ insist_prev_version_lt_later_version () {
   exit 1
 }
 
-insist_prev_version_gt_earlier_version () {
+is_prev_version_gt_earlier_version () {
   local prev_version="$1"
   local earlier_version="$2"
   local tag_commit="$3"
@@ -1260,7 +1260,7 @@ insist_prev_version_gt_earlier_version () {
   if [ "${prev_version}" = "${earlier_version}" ]; then
     >&2 echo "ERROR: Version “${prev_version}” already exists."
 
-    exit 1
+    return 1
   fi
 
   # 'pep440cmp' is optional, but we can do this without it.
@@ -1296,7 +1296,7 @@ insist_prev_version_gt_earlier_version () {
   >&2 echo "- Target commit: “${tag_commit}”"
   >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
 
-  exit 1
+  return 1
 }
 
 # ***
@@ -1592,8 +1592,11 @@ prepare_push () {
         "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}"
 
       local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
-      insist_prev_version_gt_earlier_version \
-        "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}"
+      if ! is_prev_version_gt_earlier_version \
+        "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}" \
+      ; then
+        exit 1
+      fi
     fi
   fi
 
