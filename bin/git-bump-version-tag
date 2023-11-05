@@ -1243,6 +1243,7 @@ check_prev_version_lt_later_version () {
 # - A "Version" version (without a qualifier) means full version, whether a
 #   Normal version (X.Y.Z) or a Pre-release version (X.Y.Z-*).
 
+# USAGE: Returns 0 if lhs < rhs, or 1 if lhs >= rhs.
 is_version_lt_version () {
   local lhs_version="$1"
   local rhs_version="$2"
@@ -1319,6 +1320,7 @@ check_prev_version_gt_earlier_version () {
 
 # ***
 
+# USAGE: Returns 0 if lhs > rhs, or 1 if lhs <= rhs.
 is_version_gt_version () {
   local lhs_version="$1"
   local rhs_version="$2"
