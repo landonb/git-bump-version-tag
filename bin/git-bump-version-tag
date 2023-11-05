@@ -1690,8 +1690,12 @@ normalize_version_with_style () {
   cd "${temp_dir}"
 
   git init . -q
+  # When run from CI, Git user default unset, so use fake vals.
+  git config user.email foo
+  git config user.name foo
   touch foo
   git add foo
+  # When run from CI, Git user unset, so use placeholder.
   git commit -m foo -q
   git tag "${prefixed_version}"
 
