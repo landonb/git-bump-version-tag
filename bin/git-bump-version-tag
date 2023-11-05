@@ -1238,6 +1238,7 @@ check_prev_version_lt_later_version () {
   local tag_commit="$3"
 
   if [ -z "${later_version}" ]; then
+
     return 0
   fi
 
@@ -1282,12 +1283,14 @@ is_version_lt_version () {
     )"
 
     if [ "${smaller_patch}" = "${lhs_patch}" ]; then
+
       return 0
     fi
   else
     local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
 
     if [ "${smaller_version}" = "${lhs_version}" ]; then
+
       return 0
     fi
   fi
@@ -1330,12 +1333,14 @@ check_prev_version_gt_earlier_version () {
     )"
 
     if [ "${smaller_patch}" = "${rhs_patch}" ]; then
+
       return 0
     fi
   else
     local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
 
     if [ "${smaller_version}" = "${rhs_version}" ]; then
+
       return 0
     fi
   fi
