@@ -1318,8 +1318,22 @@ check_prev_version_gt_earlier_version () {
     return 1
   fi
 
-  local lhs_version="${prev_version}"
-  local rhs_version="${earlier_version}"
+  if is_version_gt_version "${prev_version}" "${earlier_version}"; then
+
+    return 0
+  fi
+
+  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version."
+  >&2 echo "- Apply version: “${prev_version}”"
+  >&2 echo "- Target commit: “${tag_commit}”"
+  >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
+
+  return 1
+}
+
+is_version_gt_version () {
+  local lhs_version="$1"
+  local rhs_version="$2"
 
   # 'pep440cmp' is optional, but we can do this without it.
 
@@ -1356,11 +1370,6 @@ check_prev_version_gt_earlier_version () {
       return 0
     fi
   fi
-
-  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version."
-  >&2 echo "- Apply version: “${prev_version}”"
-  >&2 echo "- Target commit: “${tag_commit}”"
-  >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
 
   return 1
 }
