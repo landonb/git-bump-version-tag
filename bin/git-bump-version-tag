@@ -1642,7 +1642,13 @@ git_bump_tag_vers_push () {
 
   # ***
 
-  push_or_delete
+  # Sets curr_version.
+  push_or_delete \
+    "${tag_commit}" \
+    "${remote_name}" \
+    "${remote_branch}" \
+    "${local_head_sha}" \
+    "${remote_head_sha}"
 
   if ${ACTION_DELETE} && ${ACTION_PUSH}; then
     ACTION_DELETE=false
@@ -1650,7 +1656,13 @@ git_bump_tag_vers_push () {
 
     tag_commit="${default_tag_commit}"
 
-    push_or_delete
+    # Sets curr_version.
+    push_or_delete \
+      "${tag_commit}" \
+      "${remote_name}" \
+      "${remote_branch}" \
+      "${local_head_sha}" \
+      "${remote_head_sha}"
   fi
 
   # ***
@@ -1661,11 +1673,25 @@ git_bump_tag_vers_push () {
 # ***
 
 push_or_delete () {
+  local tag_commit="$1"
+  local remote_name="$2"
+  local remote_branch="$3"
+  local local_head_sha="$4"
+  local remote_head_sha="$5"
+
+  # SCOPE: Vars. from caller scope:
+  #  curr_version
+
   local skip_push_branch=true
 
   if ! ${ACTION_DELETE}; then
     # Sets skip_push_branch and curr_version.
-    prepare_push
+    prepare_push \
+      "${tag_commit}" \
+      "${remote_name}" \
+      "${remote_branch}" \
+      "${local_head_sha}" \
+      "${remote_head_sha}"
 
     # Tag the local commit (returns immediately if already tagged).
     git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
@@ -1692,6 +1718,15 @@ push_or_delete () {
 # ***
 
 prepare_push () {
+  local tag_commit="$1"
+  local remote_name="$2"
+  local remote_branch="$3"
+  local local_head_sha="$4"
+  local remote_head_sha="$5"
+
+  # SCOPE: Vars. seen by caller:
+  #  curr_version=<set below>
+  #  skip_push_branch=<set here and below>
   skip_push_branch=false
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
@@ -1715,7 +1750,8 @@ prepare_push () {
     # - See below:
     #   insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease
 
-    # So that git_tag_local_add doesn't add same tag again.
+    # SCOPE: Var. seen by caller.
+    # - So that git_tag_local_add doesn't add same tag again.
     curr_version="${commit_version}"
   else
     if [ "${tag_commit}" = "${local_head_sha}" ]; then
