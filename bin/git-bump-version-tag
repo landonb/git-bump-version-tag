@@ -1253,13 +1253,9 @@ is_version_lt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_normal="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
-  )"
+  local lhs_normal="$(strip_prerelease "${lhs_version}")"
+  local rhs_normal="$(strip_prerelease "${rhs_version}")"
 
-  local rhs_normal="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
-  )"
 
   # Compare versions without their prerelease parts.
   if [ "${lhs_normal}" != "${rhs_normal}" ]; then
@@ -1331,13 +1327,9 @@ is_version_gt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_normal="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
-  )"
+  local lhs_normal="$(strip_prerelease "${lhs_version}")"
+  local rhs_normal="$(strip_prerelease "${rhs_version}")"
 
-  local rhs_normal="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
-  )"
 
   # Compare versions without their prerelease parts.
   if [ "${lhs_normal}" != "${rhs_normal}" ]; then
@@ -1366,6 +1358,14 @@ is_version_gt_version () {
   fi
 
   return 1
+}
+
+# ***
+
+strip_prerelease () {
+  local version_full="$1"
+
+  command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${version_full}"
 }
 
 # ***
