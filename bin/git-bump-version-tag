@@ -1684,10 +1684,10 @@ push_or_delete () {
   # SCOPE: Vars. from caller scope:
   #  CURR_VERSION
 
-  local skip_push_branch=true
+  local SKIP_PUSH_BRANCH=true
 
   if ! ${ACTION_DELETE}; then
-    # Sets skip_push_branch and CURR_VERSION.
+    # Sets SKIP_PUSH_BRANCH and CURR_VERSION.
     prepare_push \
       "${tag_commit}" \
       "${remote_name}" \
@@ -1707,7 +1707,7 @@ push_or_delete () {
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Delete and/or push the remote tag (and maybe the branch).
     git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
-      "${remote_name}" "${remote_branch}" "${skip_push_branch}"
+      "${remote_name}" "${remote_branch}" "${SKIP_PUSH_BRANCH}"
   fi
 
   # Delete locally last, so user doesn't abandon remote tag
@@ -1728,13 +1728,13 @@ prepare_push () {
 
   # SCOPE: Vars. seen by caller:
   #  CURR_VERSION=<set below>
-  #  skip_push_branch=<set here and below>
-  skip_push_branch=false
+  #  SKIP_PUSH_BRANCH=<set here and below>
+  SKIP_PUSH_BRANCH=false
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     if [ "${tag_commit}" = "${remote_head_sha}" ]; then
       # Don't need to push this commit, which is remote branch HEAD.
-      skip_push_branch=true
+      SKIP_PUSH_BRANCH=true
     fi
   fi
 
@@ -1796,8 +1796,8 @@ prepare_push () {
   # *** Verify version order integrity between local and remote repos
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    if ! ${skip_push_branch}; then
-      # We know ${tag_commit} != ${remote_head_sha} because ! ${skip_push_branch}.
+    if ! ${SKIP_PUSH_BRANCH}; then
+      # We know ${tag_commit} != ${remote_head_sha} because ! ${SKIP_PUSH_BRANCH}.
 
       # Check if the local branch has more commits than the remote branch.
       if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
