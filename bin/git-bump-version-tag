@@ -1253,9 +1253,11 @@ is_version_lt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_normal="$(strip_prerelease "${lhs_version}")"
-  local rhs_normal="$(strip_prerelease "${rhs_version}")"
+  local lhs_normal
+  local rhs_normal
 
+  lhs_normal="$(strip_prerelease "${lhs_version}")"
+  rhs_normal="$(strip_prerelease "${rhs_version}")"
 
   # Compare versions without their prerelease parts.
   if [ "${lhs_normal}" != "${rhs_normal}" ]; then
@@ -1327,9 +1329,11 @@ is_version_gt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_normal="$(strip_prerelease "${lhs_version}")"
-  local rhs_normal="$(strip_prerelease "${rhs_version}")"
+  local lhs_normal
+  local rhs_normal
 
+  lhs_normal="$(strip_prerelease "${lhs_version}")"
+  rhs_normal="$(strip_prerelease "${rhs_version}")"
 
   # Compare versions without their prerelease parts.
   if [ "${lhs_normal}" != "${rhs_normal}" ]; then
@@ -1665,7 +1669,8 @@ prepare_push () {
   # *** Verify version order integrity between commits before and commits after
 
   # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
-  local commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+  local commit_version
+  commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
   if [ -n "${commit_version}" ]; then
     if [ "${commit_version}" != "${VERSION_TAG}" ]; then
       local refname="${tag_commit}"
