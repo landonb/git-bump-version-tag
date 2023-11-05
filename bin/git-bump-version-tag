@@ -1728,7 +1728,7 @@ exit_1 () {
 
 _WIPPED=false
 
-function exit_cleanup () {
+exit_cleanup () {
   git_pop_wip_commit_maybe "${_WIPPED}"
 
   if ! ${_NORMAL_EXIT}; then
