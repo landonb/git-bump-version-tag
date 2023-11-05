@@ -1261,33 +1261,33 @@ check_prev_version_lt_later_version () {
 }
 
 is_version_lt_version () {
-  local prev_version="$1"
-  local later_version="$2"
+  local lhs_version="$1"
+  local rhs_version="$2"
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local prev_patch="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${prev_version}"
+  local lhs_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
   )"
 
-  local later_patch="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${later_version}"
+  local rhs_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
-  if [ "${prev_patch}" != "${later_patch}" ]; then
+  if [ "${lhs_patch}" != "${rhs_patch}" ]; then
     local smaller_patch="$( \
-      echo -e "${prev_patch}\n${later_patch}" \
+      echo -e "${lhs_patch}\n${rhs_patch}" \
         | command sort -V \
         | command head -n1
     )"
 
-    if [ "${smaller_patch}" = "${prev_patch}" ]; then
+    if [ "${smaller_patch}" = "${lhs_patch}" ]; then
       return 0
     fi
   else
-    local smaller_version="$(print_smaller_vers_for_same_patch "${prev_version}" "${later_version}")"
+    local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
 
-    if [ "${smaller_version}" = "${prev_version}" ]; then
+    if [ "${smaller_version}" = "${lhs_version}" ]; then
       return 0
     fi
   fi
@@ -1309,30 +1309,33 @@ check_prev_version_gt_earlier_version () {
     return 1
   fi
 
+  local lhs_version="${prev_version}"
+  local rhs_version="${earlier_version}"
+
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local prev_patch="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${prev_version}"
+  local lhs_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
   )"
 
-  local earlier_patch="$( \
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${earlier_version}"
+  local rhs_patch="$( \
+    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
-  if [ "${prev_patch}" != "${earlier_patch}" ]; then
+  if [ "${lhs_patch}" != "${rhs_patch}" ]; then
     local smaller_patch="$( \
-      echo -e "${prev_patch}\n${earlier_patch}" \
+      echo -e "${lhs_patch}\n${rhs_patch}" \
         | command sort -V \
         | command head -n1
     )"
 
-    if [ "${smaller_patch}" = "${earlier_patch}" ]; then
+    if [ "${smaller_patch}" = "${rhs_patch}" ]; then
       return 0
     fi
   else
-    local smaller_version="$(print_smaller_vers_for_same_patch "${prev_version}" "${earlier_version}")"
+    local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
 
-    if [ "${smaller_version}" = "${earlier_version}" ]; then
+    if [ "${smaller_version}" = "${rhs_version}" ]; then
       return 0
     fi
   fi
@@ -1349,10 +1352,10 @@ check_prev_version_gt_earlier_version () {
 
 # Assumes version through patch level matches, so that it can sort by pre-release parts.
 print_smaller_vers_for_same_patch () {
-  local prev_version="$1"
-  local later_version="$2"
+  local lhs_version="$1"
+  local rhs_version="$2"
 
-  echo -e "${prev_version}\n${later_version}" \
+  echo -e "${lhs_version}\n${rhs_version}" \
     | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
     | command sed '/^$/d' \
     | command sort -k1,1r -k2,2n \
