@@ -1745,6 +1745,7 @@ prepare_push () {
   # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
   local commit_version
   commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+
   if [ -n "${commit_version}" ]; then
     # We'll compare ${commit_version} and ${VERSION_TAG} after the if-else.
     # - See below:
