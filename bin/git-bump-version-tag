@@ -945,8 +945,12 @@ git_tag_local_add () {
       return 0
     fi
 
+    # Prompt user to set local tag. Returns zero on Yes, exits
+    # on No, or returns nonzero on Skip. But Skip is basically
+    # just graceful exit: the only operation remaining pushes
+    # the local tag to the remote, but there's no local tag, so.
     git_bump_confirm_next "${version_tag}" "${curr_version}" \
-      || return 1
+      || exit_1
   fi
 
   # Note that this command tags HEAD, as opposed to a specific branch.
