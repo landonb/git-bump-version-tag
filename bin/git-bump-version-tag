@@ -1287,7 +1287,9 @@ is_version_lt_version () {
       return 0
     fi
   else
-    local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
+    local smaller_version="$(
+      print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}"
+    )"
 
     if [ "${smaller_version}" = "${lhs_version}" ]; then
 
@@ -1337,7 +1339,9 @@ check_prev_version_gt_earlier_version () {
       return 0
     fi
   else
-    local smaller_version="$(print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}")"
+    local smaller_version="$(
+      print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}"
+    )"
 
     if [ "${smaller_version}" = "${rhs_version}" ]; then
 
