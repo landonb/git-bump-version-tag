@@ -1242,6 +1242,10 @@ is_version_lt_version () {
   local lhs_version="$1"
   local rhs_version="$2"
 
+  if [ "${lhs_version}" = "${rhs_version}" ]; then
+    return 1
+  fi
+
   # 'pep440cmp' is optional, but we can do this without it.
 
   local lhs_patch="$( \
@@ -1315,6 +1319,10 @@ check_prev_version_gt_earlier_version () {
 is_version_gt_version () {
   local lhs_version="$1"
   local rhs_version="$2"
+
+  if [ "${lhs_version}" = "${rhs_version}" ]; then
+    return 1
+  fi
 
   # 'pep440cmp' is optional, but we can do this without it.
 
