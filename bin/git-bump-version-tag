@@ -205,7 +205,7 @@ insist_cmd () {
 
   >&2 echo "ERROR: Missing system command ‘${cmdname}’."
 
-  exit 1
+  exit_1
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -224,7 +224,7 @@ insist_tag_commit_unversioned_or_same_version () {
       >&2 echo "ERROR: The target commit has more than one version tag:"
       >&2 echo "${existing_tags}"
 
-      exit 1
+      exit_1
     fi
 
     local current_version="${existing_tags}"
@@ -236,7 +236,7 @@ insist_tag_commit_unversioned_or_same_version () {
       # block it.
       >&2 echo "ERROR: The target commit is already version-tagged: ${current_version}"
 
-      exit 1
+      exit_1
     fi
   fi
 }
@@ -256,7 +256,7 @@ print_git_remote_default_branch_name () {
     >&2 echo "ERROR: No local branches found for remote '${remote_name}'." \
       "Perhaps you need to fetch?"
 
-    exit 1
+    exit_1
   fi
 
   if [ ${num_branches} -eq 1 ]; then
@@ -278,7 +278,7 @@ print_git_remote_default_branch_name () {
   # Shouldn't happen, we assume.
   [ -z "${remote_branch}" ] \
     && >&2 echo "FATAL: Where's remote branch?" \
-    && exit 1
+    && exit_1
 
   printf "%s" "${remote_branch}"
 }
@@ -292,7 +292,7 @@ must_remote_exists () {
 
   >&2 echo "ERROR: No remote named “${remote_name}”"
 
-  exit 1
+  exit_1
 }
 
 # Some CI workflows might version tag automatically,
@@ -477,7 +477,7 @@ resolve_version_bump () {
         else
           >&2 echo "ERROR: Expected <REMOTE> or <COMMIT>, not: “${cur_arg}”"
 
-          exit 1
+          exit_1
         fi
       elif [ ${skip_opts} -eq 2 ]; then
         skip_opts=3
@@ -487,7 +487,7 @@ resolve_version_bump () {
         else
           >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
 
-          exit 1
+          exit_1
         fi
       else
         # Case: [ ${skip_opts} -ge 3 ]
@@ -495,7 +495,7 @@ resolve_version_bump () {
         >&2 echo "- Or maybe you specified more than one"
         >&2 echo "   <VERSIONTAG>, <REMOTE>, or <COMMIT>"
 
-        exit 1
+        exit_1
       fi
     elif [ "${cur_arg}" = '--' ]; then
       skip_opts=1
@@ -527,7 +527,7 @@ resolve_version_bump () {
         h | -h | help | --help)
           >&2 echo "${USAGE}"
 
-          exit 1
+          exit_1
           ;;
         M | -M | major) bump_major ;;
         m | -m | minor) bump_minor ;;
@@ -554,7 +554,7 @@ resolve_version_bump () {
               *)
                 >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
 
-                exit 1
+                exit_1
                 ;;
             esac
           done
@@ -567,11 +567,11 @@ resolve_version_bump () {
     if [ ${bumps_count} -gt 0 ]; then
       >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and pick 'same' (s) or delete (d)."
 
-      exit 1
+      exit_1
     elif ${ACTION_SAME} && [ -n "${VERSION_ARG}" ]; then
       >&2 echo "ERROR: Cannot indicate 'same' (s), and specify <VERSIONTAG>."
 
-      exit 1
+      exit_1
     fi
   fi
 
@@ -580,7 +580,7 @@ resolve_version_bump () {
     if [ ${bumps_count} -gt 0 ]; then
       >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and specify <VERSIONTAG>."
 
-      exit 1
+      exit_1
     fi
     # else, we already checked not 'same' and <VERSIONTAG> specified.
     # - But if 'delete' specified, be sure to delete <VERSIONTAG>.
@@ -641,7 +641,7 @@ resolve_version_bump () {
         # Should be impossible path, because ${part_or_version} defaults 'patch'.
         >&2 echo "ERROR: Please specify a bump part (M|m|p|a|l) or choose same (s)."
 
-        exit 1
+        exit_1
       elif ${warn_too_many}; then
         >&2 echo "WARNING: Only the biggest non-alpha bump option will be used (${biggest})."
         >&2 echo "- If you want to bump more than one part, toggle \`BUMP_VERBATIM=true\`"
@@ -737,7 +737,7 @@ insist_next_version_gt_curr_version () {
       >&2 echo "ERROR: Desired version not greater than current version!"
       >&2 echo "  “${next_version}” !> “${curr_version}”"
 
-      exit 1
+      exit_1
     fi
 
     >&2 echo
@@ -767,7 +767,7 @@ insist_new_version_semver_compliant () {
     # (so if you see this message, it's prob in GITSMART_RE_SEMVERSPARTS).
     >&2 echo "- Unexpected: You should never see this message!"
 
-    exit 1
+    exit_1
   fi
 }
 
@@ -850,7 +850,7 @@ git_bump_confirm_next () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && exit_1
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -865,7 +865,7 @@ git_bump_confirm_normalize () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && exit_1
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -884,7 +884,7 @@ git_bump_confirm_delete () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && exit_1
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -898,7 +898,7 @@ git_bump_confirm_push () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && exit_1
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -1042,7 +1042,7 @@ git_tag_remote_push () {
   if [ ${verify_result} -eq ${GNUBS_FAILED} ]; then
     >&2 echo "ERROR: git_tag_remote_verify_commit failed"
 
-    exit 1
+    exit_1
   elif [ ${verify_result} -eq ${GNUBS_TAG_CONFLICT} ]; then
     git_bump_print_conflict_alert "${version_tag}" "${remote_name}" "${tag_commit}"
 
@@ -1346,7 +1346,7 @@ git_bump_tag_vers_push () {
   # ***
 
   # Insist run from within a Git project.
-  git_insist_git_repo || exit 1
+  git_insist_git_repo || exit_1
 
   # Create temporary WIP commit if untidy.
   _WIPPED="$(git_wip_commit_if_untidy)"
@@ -1393,7 +1393,7 @@ git_bump_tag_vers_push () {
           >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
           >&2 echo "- Please set a remote tracking branch and try again."
 
-          exit 1
+          exit_1
         fi
       else
         # Seems unnecessary:
@@ -1434,7 +1434,7 @@ git_bump_tag_vers_push () {
   local remote_branch
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
-      || exit 1
+      || exit_1
 
     ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}"
   fi
@@ -1472,7 +1472,7 @@ git_bump_tag_vers_push () {
         >&2 echo "ERROR: Expected the same local and remote branch names"
         >&2 echo "- Not “${local_branch}” (local) and “${remote_branch}” (remote)"
 
-        exit 1
+        exit_1
       fi
     fi
 
@@ -1570,7 +1570,7 @@ prepare_push () {
       >&2 echo "ERROR: Commit “${refname}” is already versioned (${commit_version})," \
         "and different than new version (${VERSION_TAG})"
 
-      exit 1
+      exit_1
     fi
 
     # So that git_tag_local_add doesn't add same tag again.
@@ -1591,14 +1591,16 @@ prepare_push () {
       if ! is_prev_version_lt_later_version \
         "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}" \
       ; then
-        exit 1
+
+        exit_1
       fi
 
       local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
       if ! is_prev_version_gt_earlier_version \
         "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}" \
       ; then
-        exit 1
+
+        exit_1
       fi
     fi
   fi
@@ -1617,7 +1619,7 @@ prepare_push () {
         if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
           >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
 
-          exit 1
+          exit_1
         fi
       fi
       # else, remote ahead of local. Means we're tagging an old commit.
@@ -1685,7 +1687,7 @@ normalize_version_with_style () {
   fi
 
   local temp_dir="$(mktemp -d /tmp/$(basename $0)-XXXXXXX)"
-  [ ! -d "${temp_dir}" ] && >&2 echo "ERROR: \`mktemp\` failed" && exit 1 || true
+  [ ! -d "${temp_dir}" ] && >&2 echo "ERROR: \`mktemp\` failed" && exit_1 || true
 
   cd "${temp_dir}"
 
@@ -1709,17 +1711,31 @@ normalize_version_with_style () {
   # DEV: Uncomment to leave temp dir:
   #
   #   >&2 echo "${temp_dir}"
-  #   exit 1
+  #   exit_1
 
   /bin/rm -rf "${temp_dir}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+_NORMAL_EXIT=false
+
+exit_1 () {
+  _NORMAL_EXIT=true
+
+  exit 1
+}
+
 _WIPPED=false
 
 function exit_cleanup () {
   git_pop_wip_commit_maybe "${_WIPPED}"
+
+  if ! ${_NORMAL_EXIT}; then
+    # Dev: Unexpected error path occurred, you might wanna graceify.
+    >&2 echo "ALERT: git-bump-version-tag exited abnormally!"
+    >&2 echo "- Hint: Enable \`set -x\` and run again..."
+  fi
 }
 trap exit_cleanup EXIT
 
