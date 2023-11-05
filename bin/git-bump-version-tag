@@ -1238,6 +1238,13 @@ check_prev_version_lt_later_version () {
 
 # ***
 
+# WORDS: Per SemVer 2.0.0 doc:
+# - A "Normal" version is X.Y.Z form (no prerelease parts), which we use to
+#   simplify the comparison (i.e., if X.Y.Z parts don't match, we don't need
+#   to compare prerelease parts, which is lots more tedious).
+# - A "Version" version (without a qualifier) means full version, whether a
+#   Normal version (X.Y.Z) or a Pre-release version (X.Y.Z-*).
+
 is_version_lt_version () {
   local lhs_version="$1"
   local rhs_version="$2"
@@ -1248,25 +1255,25 @@ is_version_lt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_patch="$( \
+  local lhs_normal="$( \
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
   )"
 
-  local rhs_patch="$( \
+  local rhs_normal="$( \
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
   # Compare versions without their prerelease parts.
-  if [ "${lhs_patch}" != "${rhs_patch}" ]; then
+  if [ "${lhs_normal}" != "${rhs_normal}" ]; then
     # The versions don't match at the patch level, so we can compare
     # them without their prerelease parts.
-    local smaller_patch="$( \
-      echo -e "${lhs_patch}\n${rhs_patch}" \
+    local smaller_normal="$( \
+      echo -e "${lhs_normal}\n${rhs_normal}" \
         | command sort -V \
         | command head -n1
     )"
 
-    if [ "${smaller_patch}" = "${lhs_patch}" ]; then
+    if [ "${smaller_normal}" = "${lhs_normal}" ]; then
 
       return 0
     fi
@@ -1326,25 +1333,25 @@ is_version_gt_version () {
 
   # 'pep440cmp' is optional, but we can do this without it.
 
-  local lhs_patch="$( \
+  local lhs_normal="$( \
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${lhs_version}"
   )"
 
-  local rhs_patch="$( \
+  local rhs_normal="$( \
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
   # Compare versions without their prerelease parts.
-  if [ "${lhs_patch}" != "${rhs_patch}" ]; then
+  if [ "${lhs_normal}" != "${rhs_normal}" ]; then
     # The versions don't match at the patch level, so we can compare
     # them without their prerelease parts.
-    local smaller_patch="$( \
-      echo -e "${lhs_patch}\n${rhs_patch}" \
+    local smaller_normal="$( \
+      echo -e "${lhs_normal}\n${rhs_normal}" \
         | command sort -V \
         | command head -n1
     )"
 
-    if [ "${smaller_patch}" = "${rhs_patch}" ]; then
+    if [ "${smaller_normal}" = "${rhs_normal}" ]; then
 
       return 0
     fi
