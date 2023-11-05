@@ -1213,7 +1213,6 @@ check_prev_version_lt_later_version () {
   local tag_commit="$3"
 
   if [ -z "${later_version}" ]; then
-
     return 0
   fi
 
@@ -1224,7 +1223,6 @@ check_prev_version_lt_later_version () {
   fi
 
   if is_version_lt_version "${prev_version}" "${later_version}"; then
-
     return 0
   fi
 
