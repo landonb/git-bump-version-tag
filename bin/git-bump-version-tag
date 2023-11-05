@@ -942,6 +942,8 @@ git_tag_local_add () {
   echo "✓ Created local tag"
 }
 
+# ***
+
 # When run from CI, Git user unset by default. Up to caller
 # (GHA workflow) to set user.email and user.name.
 insist_git_user_configured () {
@@ -954,6 +956,8 @@ insist_git_user_configured () {
 
   exit_1
 }
+
+# ***
 
 git_tag_local_delete () {
   local version_tag="$1"
@@ -969,6 +973,8 @@ git_tag_local_delete () {
 
   echo_or_eval git tag -d "${version_tag}"
 }
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 github_release_delete () {
   local version_tag="$1"
@@ -1199,6 +1205,8 @@ git_smallest_version_tag () {
   printf "%s" "${smallest_version}"
 }
 
+# ***
+
 check_prev_version_lt_later_version () {
   local prev_version="$1"
   local later_version="$2"
@@ -1227,6 +1235,8 @@ check_prev_version_lt_later_version () {
 
   return 1
 }
+
+# ***
 
 is_version_lt_version () {
   local lhs_version="$1"
@@ -1271,6 +1281,8 @@ is_version_lt_version () {
   return 1
 }
 
+# ***
+
 check_prev_version_gt_earlier_version () {
   local prev_version="$1"
   local earlier_version="$2"
@@ -1297,6 +1309,8 @@ check_prev_version_gt_earlier_version () {
 
   return 1
 }
+
+# ***
 
 is_version_gt_version () {
   local lhs_version="$1"
@@ -1403,6 +1417,8 @@ git_wip_commit_if_untidy () {
 
   printf "%s" "${wipped}"
 }
+
+# ***
 
 git_pop_wip_commit_maybe () {
   local wipped="$1"
