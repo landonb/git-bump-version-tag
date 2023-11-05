@@ -227,14 +227,14 @@ insist_tag_commit_unversioned_or_same_version () {
       exit_1
     fi
 
-    local current_version="${existing_tags}"
+    local commit_version="${existing_tags}"
 
-    if [ "${current_version}" != "${version_tag}" ]; then
+    if [ "${commit_version}" != "${version_tag}" ]; then
       # We could allow this, but seems like an unlikely use case,
       # or rather, I can't think of a valid end user use case for
       # tagging the same commit with more than one version, so
       # block it.
-      >&2 echo "ERROR: The target commit is already version-tagged: ${current_version}"
+      >&2 echo "ERROR: The target commit is already version-tagged: ${commit_version}"
 
       exit_1
     fi
