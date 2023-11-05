@@ -201,7 +201,7 @@ source_deps () {
 insist_cmd () {
   local cmdname="$1"
 
-  command -v "${cmdname}" > /dev/null && return
+  command -v "${cmdname}" > /dev/null && return || true
 
   >&2 echo "ERROR: Missing system command ‘${cmdname}’."
 
@@ -276,9 +276,11 @@ print_git_remote_default_branch_name () {
   fi
 
   # Shouldn't happen, we assume.
-  [ -z "${remote_branch}" ] \
-    && >&2 echo "FATAL: Where's remote branch?" \
-    && exit_1
+  if [ -z "${remote_branch}" ]; then
+    >&2 echo "FATAL: Where's remote branch?"
+
+    exit_1
+  fi
 
   printf "%s" "${remote_branch}"
 }
@@ -288,7 +290,7 @@ print_git_remote_default_branch_name () {
 must_remote_exists () {
   local remote_name="$1"
 
-  git_remote_exists "${remote_name}" && return
+  git_remote_exists "${remote_name}" && return || true
 
   >&2 echo "ERROR: No remote named “${remote_name}”"
 
@@ -370,7 +372,7 @@ resolve_version_bump () {
   IFS=' ' read vprefix major minor patch prerelease finalnum <<< "${partsstr}"
 
   # ${DRY_RUN} && echo "read: v:${vprefix} M:${major} m:${minor}" \
-  #   "p:${patch} a:${prerelease} n:${finalnum} (${partsstr})"
+  #   "p:${patch} a:${prerelease} n:${finalnum} (${partsstr})" || true
 
   local was_prerelease=$(test -n "${prerelease}" && echo true || echo false)
 
@@ -396,7 +398,7 @@ resolve_version_bump () {
 
   bump_major () {
     bump_bumps_count
-    ! ${bump_verbatim} && bmajor=true && return
+    ! ${bump_verbatim} && bmajor=true && return || true
 
     # Note that if var. unset, the let += 1 sets it to 1.
     let 'major += 1'; minor=0; patch=0; prerelease=; finalnum=;
@@ -405,7 +407,7 @@ resolve_version_bump () {
 
   bump_minor () {
     bump_bumps_count
-    ! ${bump_verbatim} && bminor=true && return
+    ! ${bump_verbatim} && bminor=true && return || true
 
     let 'minor += 1'; patch=0; prerelease=; finalnum=;
     bumped_patch_or_better=true
@@ -413,7 +415,7 @@ resolve_version_bump () {
 
   bump_patch () {
     bump_bumps_count
-    ! ${bump_verbatim} && bpatch=true && return
+    ! ${bump_verbatim} && bpatch=true && return || true
 
     # Only bump patch if no current alpha. Otherwise just drop alpha.
     if [ -z "${prerelease}" ]; then
@@ -427,11 +429,11 @@ resolve_version_bump () {
   # What SemVer calls "pre-release".
   bump_alpha () {
     bump_bumps_count
-    ! ${bump_verbatim} && balpha=true && return
+    ! ${bump_verbatim} && balpha=true && return || true
 
     if [ -z "${prerelease}" ]; then
       # If no current alpha, must bump patch so new version is < current vers.
-      ! ${bumped_patch_or_better} && let 'patch += 1'
+      ${bumped_patch_or_better} || let 'patch += 1'
       prerelease="${BUMP_PRERELEASE_BASE:--alpha.}"
       finalnum="1"
     else
@@ -595,10 +597,10 @@ resolve_version_bump () {
 
       # We could let user bump more than one part, e.g.,
       #
-      #   ${bmajor} && bump_major
-      #   ${bminor} && bump_minor
-      #   ${bpatch} && bump_patch
-      #   ${balpha} && bump_alpha
+      #   ! ${bmajor} || bump_major
+      #   ! ${bminor} || bump_minor
+      #   ! ${bpatch} || bump_patch
+      #   ! ${balpha} || bump_alpha
       #
       # but that's what VERBATIM_BUMP=true is for: to let
       # user specify their own bump recipe, and we play
@@ -610,8 +612,11 @@ resolve_version_bump () {
       # you really want, use VERBATIM_BUMP).
 
       local warn_too_many=false
-      ${balpha} && let 'bumps_count -= 1'
-      [ ${bumps_count} -gt 1 ] && warn_too_many=true
+      # BWARE: If `let` result is 0, function exits nonzero.
+      # - I.e., this would trigger errexit if bumps_count=1:
+      #     ! ${balpha} || let 'bumps_count -= 1'
+      ${balpha} && let 'bumps_count -= 1' || true
+      [ ${bumps_count} -le 1 ] || warn_too_many=true
 
       bumps_count=0
 
@@ -654,13 +659,13 @@ resolve_version_bump () {
     [ -z "${patch}" ] || pdot="."
 
     # ${DRY_RUN} && echo "version_tag: v:${vprefix} M:${major:-0} m:${minor:-0}" \
-    #   "?:${pdot} p:${patch} a:${prerelease} n:${finalnum}"
+    #   "?:${pdot} p:${patch} a:${prerelease} n:${finalnum}" || true
     version_tag="${vprefix}${major:-0}.${minor:-0}${pdot}${patch}${prerelease}${finalnum}"
 
     VERSION_TAG="${version_tag}"
   fi
 
-  ${DRY_RUN} && echo "VERSION_TAG=${VERSION_TAG}"
+  ${DRY_RUN} && echo "VERSION_TAG=${VERSION_TAG}" || true
 }
 
 like_a_version () {
@@ -673,7 +678,7 @@ is_known_remote () {
   local word="$1"
 
   # "-" means skip remote tag push.
-  [ "${word}" = "${BUMP_SKIP_REMOTE}" ] && return 0
+  [ "${word}" = "${BUMP_SKIP_REMOTE}" ] && return 0 || true
 
   starts_with_alphanum "${word}" || return 1
 
@@ -685,7 +690,7 @@ is_known_commit_sha () {
 
   starts_with_alphanum "${word}" || return 1
 
-  [ "${word}" = "HEAD" ] && return 0
+  [ "${word}" = "HEAD" ] && return 0 || true
 
   git rev-parse "${word}" > /dev/null 2>&1 || return 1
 
@@ -792,8 +797,10 @@ ask_yesnoskip_maybe () {
   local retcode=0
 
   if isa_tty; then
+    set +e
     THE_CHOICE=$(SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}")
     retcode=$?
+    set -e
   else
     # Seems tedious, but we'll check if stdin has anything queued,
     # e.g., so user can pipe answers (not that I can think why anyone
@@ -819,10 +826,12 @@ ask_yesnoskip_maybe () {
 
       THE_CHOICE="y"
     else
+      set +e
       THE_CHOICE=$( \
         SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}" "${input_line}"
       )
       retcode=$?
+      set -e
 
       # Print what we read from the pipe to show input, and to wrap output.
       >&2 echo "${input_line}"
@@ -850,7 +859,7 @@ git_bump_confirm_next () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1
+  [ $? -ne 0 ] && exit_1 || true
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -865,7 +874,7 @@ git_bump_confirm_normalize () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1
+  [ $? -ne 0 ] && exit_1 || true
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -884,7 +893,7 @@ git_bump_confirm_delete () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1
+  [ $? -ne 0 ] && exit_1 || true
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -898,7 +907,7 @@ git_bump_confirm_push () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1
+  [ $? -ne 0 ] && exit_1 || true
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -973,7 +982,7 @@ git_tag_local_delete () {
   fi
 
   git_bump_confirm_delete "${version_tag}" "" \
-    || return 1
+    || return 0
 
   echo_or_eval git tag -d "${version_tag}"
 }
@@ -996,9 +1005,6 @@ github_release_delete () {
 git_tag_remote_delete () {
   local version_tag="$1"
   local remote_name="$2"
-
-  git_bump_confirm_delete "${version_tag}" "${remote_name}" \
-    || return 1
 
   # (lb): I realize there's a less obtuse syntax to delete tags, e.g.,
   #           git push --delete ${remote_name} ${tag_name}
@@ -1040,8 +1046,10 @@ git_tag_remote_push () {
   #   - If tag doesn't exist, returns GNUBS_TAG_ABSENT (1).
   #   - On error, returns GNUBS_FAILED (-1).
   GNUBS_TAG_COMMIT_OBJECT=""
+  set +e
   git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
   verify_result=$?
+  set -e
 
   if [ ${verify_result} -eq ${GNUBS_FAILED} ]; then
     >&2 echo "ERROR: git_tag_remote_verify_commit failed"
@@ -1050,10 +1058,12 @@ git_tag_remote_push () {
   elif [ ${verify_result} -eq ${GNUBS_TAG_CONFLICT} ]; then
     git_bump_print_conflict_alert "${version_tag}" "${remote_name}" "${tag_commit}"
 
-    # Return now if user declines delete, or if delete fails, so we don't
-    # have to further process GNUBS_TAG_CONFLICT state.
-    git_tag_remote_delete "${version_tag}" "${remote_name}" \
-      || return 1
+    # Returns 0 on 'Y', 1 on 'S', and will exit app on 'N'.
+    # - Return 0 so caller doesn't errexit.
+    git_bump_confirm_delete "${version_tag}" "${remote_name}" \
+      || return 0
+
+    git_tag_remote_delete "${version_tag}" "${remote_name}"
 
     verify_result=${GNUBS_TAG_ABSENT}
   fi
@@ -1068,15 +1078,19 @@ git_tag_remote_push () {
       # - At least that's what I've observed: I'm not quite sure how it works,
       #   or where it's documented, just that deleting the tag clears the entry.
       github_release_delete "${version_tag}"
+
+      git_bump_confirm_delete "${version_tag}" "${remote_name}" \
+        || return 0
+
       git_tag_remote_delete "${version_tag}" "${remote_name}"
     fi
 
-    return
+    return 0
   elif [ ${verify_result} -eq ${GNUBS_TAG_PRESENT} ]; then
     # The tag is already pushed.
     echo "✓ Remote already up-to-date"
 
-    return
+    return 0
   elif [ ${verify_result} -ne ${GNUBS_TAG_ABSENT} ]; then
     # Impossible path.
     >&2 echo "ERROR: Unexpected verify_result: ${verify_result} (expecting ${GNUBS_TAG_ABSENT})"
@@ -1088,7 +1102,7 @@ git_tag_remote_push () {
   # ***
 
   git_bump_confirm_push "${version_tag}" "${remote_name}" \
-    || return 1
+    || return 0
 
   # If user specified "HEAD" <COMMIT>, push that, too.
   # - Otherwise we're tagging the current remote branch HEAD,
@@ -1327,7 +1341,8 @@ git_wip_commit_if_untidy () {
   test -n "$(git status --porcelain=v1)" \
     && git add -A \
     && git commit -q --no-verify -m 'PRIVATE: WIP [git-bump-version-tag]' > /dev/null \
-    && wipped=true
+    && wipped=true \
+    || true
 
   printf "%s" "${wipped}"
 }
@@ -1335,7 +1350,7 @@ git_wip_commit_if_untidy () {
 git_pop_wip_commit_maybe () {
   local wipped="$1"
 
-  ${wipped} && git reset -q --mixed @~1
+  ${wipped} && git reset -q --mixed @~1 || true
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -1345,7 +1360,7 @@ git_bump_tag_vers_push () {
   # must_resolve_new_version_tag.
 
   # Remind user if they're dry-running.
-  ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)"
+  ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)" || true
 
   # ***
 
@@ -1379,7 +1394,7 @@ git_bump_tag_vers_push () {
   # and recalculate next version if new version tag was fetched.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Default to the remote tracking branch remote.
-    [ -z "${remote_name}" ] && remote_name="$(git_upstream_parse_remote_name)"
+    [ -n "${remote_name}" ] || remote_name="$(git_upstream_parse_remote_name)"
     # If no such tracking branch, use sole remote if only one set.
     if [ -z "${remote_name}" ]; then
       if [ -n "$(git remote -v)" ]; then
@@ -1440,7 +1455,7 @@ git_bump_tag_vers_push () {
     remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
       || exit_1
 
-    ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}"
+    ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}" || true
   fi
 
   # ***
@@ -1568,8 +1583,8 @@ prepare_push () {
   if [ -n "${commit_version}" ]; then
     if [ "${commit_version}" != "${VERSION_TAG}" ]; then
       local refname="${tag_commit}"
-      [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
-        && refname="${remote_name}/${remote_branch}"
+      [ "${remote_name}" = "${BUMP_SKIP_REMOTE}" ] \
+        || refname="${remote_name}/${remote_branch}"
 
       >&2 echo "ERROR: Commit “${refname}” is already versioned (${commit_version})," \
         "and different than new version (${VERSION_TAG})"
@@ -1691,7 +1706,10 @@ normalize_version_with_style () {
   fi
 
   local temp_dir="$(mktemp -d /tmp/$(basename $0)-XXXXXXX)"
-  [ ! -d "${temp_dir}" ] && >&2 echo "ERROR: \`mktemp\` failed" && exit_1 || true
+  [ ! -d "${temp_dir}" ] \
+    && >&2 echo "ERROR: \`mktemp\` failed" \
+    && exit_1 \
+    || true
 
   cd "${temp_dir}"
 
@@ -1746,7 +1764,11 @@ trap exit_cleanup EXIT
 # ***
 
 main () {
-  source_deps "${BASH_SOURCE[0]}" || exit 1
+  # Using errexit makes for a more robust script, and is esp. important
+  # for unattended CI runs.
+  set -e
+
+  source_deps "${BASH_SOURCE[0]}" || exit_1
 
   git_bump_tag_vers_push "$@"
 }
