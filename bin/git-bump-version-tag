@@ -1198,7 +1198,7 @@ git_smallest_version_tag () {
   printf "%s" "${smallest_version}"
 }
 
-insist_prev_version_lt_later_version () {
+is_prev_version_lt_later_version () {
   local prev_version="$1"
   local later_version="$2"
   local tag_commit="$3"
@@ -1210,7 +1210,7 @@ insist_prev_version_lt_later_version () {
   if [ "${prev_version}" = "${later_version}" ]; then
     >&2 echo "ERROR: Version “${prev_version}” already exists."
 
-    exit 1
+    return 1
   fi
 
   # 'pep440cmp' is optional, but we can do this without it.
@@ -1246,7 +1246,7 @@ insist_prev_version_lt_later_version () {
   >&2 echo "- Target commit: “${tag_commit}”"
   >&2 echo "- Conlicts with: “${later_version}” (Smallest version after commit)"
 
-  exit 1
+  return 1
 }
 
 is_prev_version_gt_earlier_version () {
@@ -1254,7 +1254,7 @@ is_prev_version_gt_earlier_version () {
   local earlier_version="$2"
   local tag_commit="$3"
 
-  # Not necessary/won't hit, because `insist_prev_version_lt_later_version`
+  # Not necessary/won't hit, because `is_prev_version_lt_later_version`
   # did it first. But just so you know this case won't happen.
   #
   if [ "${prev_version}" = "${earlier_version}" ]; then
@@ -1588,8 +1588,11 @@ prepare_push () {
       # This includes ${tag_commit} tags, but we checked that case
       # earlier, so we know ${tag_commit} is not versioned here.
       latest_smallest_version="$(git_smallest_version_tag "${tag_commit}")"
-      insist_prev_version_lt_later_version \
-        "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}"
+      if ! is_prev_version_lt_later_version \
+        "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}" \
+      ; then
+        exit 1
+      fi
 
       local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
       if ! is_prev_version_gt_earlier_version \
