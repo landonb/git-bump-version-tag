@@ -1182,6 +1182,10 @@ git_tag_remote_push () {
 git_smallest_version_tag () {
   local since_commit="$1"
 
+  # Using --contains will find tags between ${since_commit} and any head
+  # (so if you've rebased work after ${since_commit} and abandoned tags
+  # in those other lines of work, --contains will find those tags).
+
   local smallest_patch="$( \
     git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*" \
       | command grep -E -e "${GITSMART_RE_VERSPARTS}" \
@@ -1745,6 +1749,9 @@ prepare_push () {
   # *** Verify version order integrity between commits before and commits after
 
   # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
+  # - See also git_versions_tagged_for_commit_object, which finds all
+  #   version tags applied to a commit object. Here we identify just
+  #   the largest one.
   local commit_version
   commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
 
@@ -1776,6 +1783,10 @@ prepare_push () {
         exit_1
       fi
 
+      # Note the --no-contains is more inclusive than finding tags from the
+      # first commit (git rev-list --max-parents=0 HEAD) through ${tag_commit}.
+      # The --no-contains will look through those commits, but it also includes
+      # any other line of work that doesn't contain ${tag_commit}.
       local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
       if ! check_prev_version_gt_earlier_version \
         "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}" \
