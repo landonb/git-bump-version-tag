@@ -1642,7 +1642,9 @@ git_bump_tag_vers_push () {
 
   # ***
 
-  # Sets curr_version.
+  local CURR_VERSION="${curr_version}"
+
+  # Sets CURR_VERSION.
   push_or_delete \
     "${tag_commit}" \
     "${remote_name}" \
@@ -1656,7 +1658,7 @@ git_bump_tag_vers_push () {
 
     tag_commit="${default_tag_commit}"
 
-    # Sets curr_version.
+    # Sets CURR_VERSION.
     push_or_delete \
       "${tag_commit}" \
       "${remote_name}" \
@@ -1680,12 +1682,12 @@ push_or_delete () {
   local remote_head_sha="$5"
 
   # SCOPE: Vars. from caller scope:
-  #  curr_version
+  #  CURR_VERSION
 
   local skip_push_branch=true
 
   if ! ${ACTION_DELETE}; then
-    # Sets skip_push_branch and curr_version.
+    # Sets skip_push_branch and CURR_VERSION.
     prepare_push \
       "${tag_commit}" \
       "${remote_name}" \
@@ -1694,7 +1696,7 @@ push_or_delete () {
       "${remote_head_sha}"
 
     # Tag the local commit (returns immediately if already tagged).
-    git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${curr_version}"
+    git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${CURR_VERSION}"
   else
     # Set tag_commit to tag commit ID, which we pass to remote delete tag
     # so it can check for conflict (not that it really matters on delete,
@@ -1725,7 +1727,7 @@ prepare_push () {
   local remote_head_sha="$5"
 
   # SCOPE: Vars. seen by caller:
-  #  curr_version=<set below>
+  #  CURR_VERSION=<set below>
   #  skip_push_branch=<set here and below>
   skip_push_branch=false
 
@@ -1753,10 +1755,10 @@ prepare_push () {
 
     # SCOPE: Var. seen by caller.
     # - So that git_tag_local_add doesn't add same tag again.
-    curr_version="${commit_version}"
+    CURR_VERSION="${commit_version}"
   else
     if [ "${tag_commit}" = "${local_head_sha}" ]; then
-      insist_next_version_gt_curr_version "${VERSION_TAG}" "${curr_version}" "${tag_commit}"
+      insist_next_version_gt_curr_version "${VERSION_TAG}" "${CURR_VERSION}" "${tag_commit}"
     else
       # Means we're tagging an old commit.
       # MEH: I don't know why we support this. Maybe I just wanted to
