@@ -968,9 +968,24 @@ git_tag_local_add () {
   #   git tag -a ${version_tag} -m "Version: ${version_tag}" "release"
   # but that would probably be confusing to the user. So stick to HEAD.
 
+  insist_git_user_configured
+
   echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag#v}'" "${tag_commit}"
 
   echo "✓ Created local tag"
+}
+
+# When run from CI, Git user unset by default. Up to caller
+# (GHA workflow) to set user.email and user.name.
+insist_git_user_configured () {
+  [ -n "$(git config user.email)" ] \
+    && [ -n "$(git config user.name)" ] \
+    && return 0 \
+    || true
+
+  >&2 echo "ERROR: Please set the Git user.email and user.name"
+
+  exit_1
 }
 
 git_tag_local_delete () {
