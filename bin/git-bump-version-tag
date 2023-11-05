@@ -1275,7 +1275,10 @@ is_version_lt_version () {
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
+  # Compare versions without their prerelease parts.
   if [ "${lhs_patch}" != "${rhs_patch}" ]; then
+    # The versions don't match at the patch level, so we can compare
+    # them without their prerelease parts.
     local smaller_patch="$( \
       echo -e "${lhs_patch}\n${rhs_patch}" \
         | command sort -V \
@@ -1287,6 +1290,7 @@ is_version_lt_version () {
       return 0
     fi
   else
+    # The versions match at the patch level, so compare prerelease parts.
     local smaller_version="$(
       print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}"
     )"
@@ -1327,7 +1331,10 @@ check_prev_version_gt_earlier_version () {
     command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${rhs_version}"
   )"
 
+  # Compare versions without their prerelease parts.
   if [ "${lhs_patch}" != "${rhs_patch}" ]; then
+    # The versions don't match at the patch level, so we can compare
+    # them without their prerelease parts.
     local smaller_patch="$( \
       echo -e "${lhs_patch}\n${rhs_patch}" \
         | command sort -V \
@@ -1339,6 +1346,7 @@ check_prev_version_gt_earlier_version () {
       return 0
     fi
   else
+    # The versions match at the patch level, so compare prerelease parts.
     local smaller_version="$(
       print_smaller_vers_for_same_patch "${lhs_version}" "${rhs_version}"
     )"
