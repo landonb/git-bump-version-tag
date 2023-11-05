@@ -312,6 +312,7 @@ periodically_fetch () {
   local last_update="$(git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH})"
 
   local do_fetch=true
+
   if [ -n "${last_update}" ]; then
     if [ ${last_update} -gt $(date -d '-1 hour' +'%s') ]; then
       do_fetch=false
@@ -1554,7 +1555,7 @@ push_or_delete () {
   fi
 
   # Delete locally last, so user doesn't abandon remote tag
-  # (well, abandon until the next pull).
+  # (well, abandon until the next fetch or pull).
   if ${ACTION_DELETE}; then
     git_tag_local_delete "${VERSION_TAG}"
   fi
