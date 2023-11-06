@@ -33,61 +33,86 @@ CACHE_PROG_NAME="git-bump-version-tag"
 PROG_NAME="$(basename "$0")"
 
 USAGE="\
-USAGE: ${PROG_NAME} [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
+USAGE: ${PROG_NAME} [ACTIONS...] [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
 
-OPTIONS: One or more of:
+ACTIONS:
 
-  [s|-s|same
-  |d|-d|delete
-  |P|-P|push
-  |M|-M|major
-  |m|-m|minor
-  |p|-p|patch
-  |a|-a|alpha
-  |v|-v|v-pre
-  |V|-V|v-del]
+  Combine one or more bump actions:
 
-- s, -s, same    Use current version (don't bump)
-                 - Useful if you only tagged locally,
-                   and would like to push that tag now
+  M|-M|major
+  m|-m|minor
+  p|-p|patch
+  a|-a|alpha
+  l|-l|least
+  s|-s|same
 
-- d, -d, delete  Delete latest version tag (local and remote)
-                 - Useful if you messed up — but it's on you to ensure it's
-                   not too late to delete a tag you previously published!
+  Or specify a different action:
 
-- P, -P, push    Push tag (default action when not 'delete')
+  d|-d|delete
+  P|-P|push
+OPTIONS:
 
-- M, -M, major   Bump major version by one
+  And use optional bump options:
 
-- m, -m, minor   Bump minor version by one
+  v|-v|v-pre
+  V|-V|v-del
 
-- p, -p, patch   Bump patch version by one
 
-- a, -a, alpha   Bump pre-release version by one
-                 - This only works if the pre-release part ends in a number
-                 - Use BUMP_PRERELEASE_BASE to set the default prerelease
-                   value (defaults: “${BUMP_PRERELEASE_BASE}”)
-                   - E.g., given current version 1.2.3, then
-                       $ git bump major alpha
-                     will create version 2.0.0${BUMP_PRERELEASE_BASE}1
-                   - BUMP_PRERELEASE_BASE is ignored if the previous tag
-                     is already prerelease, and its value is used instead
+DETAILS
+~~~~~~~
 
-- l, -l, least   Bump least part by one (either patch or pre-release)
+- BUMP ACTIONS:
 
-- v, -v, v-pre   Use \"v\" tag prefix
-                 - Adds v-prefix if previous tag was not v-prefixed
+  - M, -M, major   Bump major version by one
 
-- V, -V, v-del   Remove \"v\" tag prefix
-                 - Removes v-prefix if previous tag was v-prefixed
+  - m, -m, minor   Bump minor version by one
 
-The \"least\" option will be assumed if no option is specified
+  - p, -p, patch   Bump patch version by one
 
-Options can be specified individually or as a classic clump
-- E.g., \`git bump minor alpha\` is the same as \`git bump ma\`
-- Though beware if a clump option matches a known remote name,
-  then it's assumed to be the <REMOTE> argument instead
-  (in which case you cannot use the clump format)
+  - a, -a, alpha   Bump pre-release version by one
+                   - This only works if the pre-release part ends in a number
+                   - Use BUMP_PRERELEASE_BASE to set the default prerelease
+                     value (defaults: “${BUMP_PRERELEASE_BASE}”)
+                     - E.g., given current version 1.2.3, then
+                         $ git bump major alpha
+                       will create version 2.0.0${BUMP_PRERELEASE_BASE}1
+                     - BUMP_PRERELEASE_BASE is ignored if the previous tag
+                       is already pre-release, and its value is used instead
+
+  - l, -l, least   Bump least part by one (either patch or pre-release)
+
+  - s, -s, same    Use current version
+                   - Useful if you only tagged locally,
+                     and would like to push that tag now
+                   - But if you didn't tag the current commit,
+                     likely to fail because cannot repeat a version
+
+  The \"least\" option will be assumed if no option and no other action
+  is specified (e.g., on a bare \`${PROG_NAME}\`)
+
+  Options can be specified individually or as a classic arg clump
+  - E.g., \`git bump minor alpha\` is the same as \`git bump ma\`
+  - Though beware if a clump option matches a known remote name, then it's
+    assumed to be the <REMOTE> argument instead (in which case you cannot
+    use the clump format)
+
+- OTHER ACTIONS:
+
+  - d, -d, delete  Delete version tag (remote, then local)
+                   - Unless specified, uses latest version
+                   - Useful if you messed up — but it's on you to ensure it's
+                     not too late to delete a tag you previously published
+                   - First deletes the GitHub release, if exists
+
+  - P, -P, push    Push tag (default action when not 'delete')
+
+- BUMP OPTIONS:
+
+  - v, -v, v-pre   Use \"v\" tag prefix
+                   - Adds v-prefix if previous tag was not v-prefixed
+
+  - V, -V, v-del   Remove \"v\" tag prefix
+                   - Removes v-prefix if previous tag was v-prefixed
 
 ARGUMENTS:
 
@@ -101,8 +126,9 @@ ARGUMENTS:
             - If not specified, will default to the remote specified
               by the local upstream branch
             - If local branch does not have an upstream (you can set
-              one via \`git branch -u <remote/branch>\`), uses 'origin'
-            - Specify \"-\" to skip remote tag push altogether.
+              one via \`git branch -u <remote/branch>\`), will use
+              remote from \`git remote -v\` if only one is configured
+            - Specify \"-\" to skip remote tag push altogether
             - ALERT: You must use \`--\` before remote name if it
               could be interpreted as an OPTIONS sequence, or if the
               remote name is also a valid version
@@ -114,10 +140,9 @@ ARGUMENTS:
               commit
               - A non-scoped commit is indicated by a commit message
                 with a specific prefix, either PRIVATE_PREFIX (set to
-                \"${PRIVATE_PREFIX:-PRIVATE: }\") or SCOPING_PREFIX
-                (set to \"${SCOPING_PREFIX:-PROTECTED: }\")
+                \"${PRIVATE_PREFIX:-PRIVATE: }\") or SCOPING_PREFIX (set to \"${SCOPING_PREFIX:-PROTECTED: }\")
             - If \"HEAD\", will also push latest commits to remote
-              before tagging.
+              before tagging
 
 OVERRIDES: Set these environment variables for alternative behavior:
 
@@ -148,7 +173,7 @@ OVERRIDES: Set these environment variables for alternative behavior:
               an alpha bump with any of the other parts (major|minor|patch)
               - E.g., if at version 1.2.3, you can easily start a new alpha
                 version at 1.2.4-alpha.1, 1.3.0-alpha.1, or 2.0.0-alpha.1
-            - (As an aside, we're unclear BUMP_VERBATIM is very useful)
+            - (As an aside, we're unclear if BUMP_VERBATIM is very useful)
 
 SCOPING_PREFIX=\"${SCOPING_PREFIX:-PROTECTED: }\"
 PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
