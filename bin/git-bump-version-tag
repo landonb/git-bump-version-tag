@@ -28,6 +28,8 @@ BUMP_SKIP_REMOTE="-"
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+CACHE_PROG_NAME="git-bump-version-tag"
+
 PROG_NAME="$(basename "$0")"
 
 USAGE="\
@@ -275,7 +277,8 @@ must_remote_exists () {
 periodically_fetch () {
   local remote_name="$1"
 
-  BUMP_CONFIG_SECTION="tools.git-bump-version-tag"
+  # E.g., "tools.git-bump-version-tag".
+  BUMP_CONFIG_SECTION="tools.${CACHE_PROG_NAME}"
   BUMP_CONFIG_LAST_FETCH="lastfetch"
 
   local last_update="$(git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH})"
@@ -1473,7 +1476,7 @@ git_wip_commit_if_untidy () {
   # If nothing is staged, git-commit fails, but we'll check git-status anyway.
   test -n "$(git status --porcelain=v1)" \
     && git add -A \
-    && git commit -q --no-verify -m 'PRIVATE: WIP [git-bump-version-tag]' > /dev/null \
+    && git commit -q --no-verify -m 'PRIVATE: WIP [${CACHE_PROG_NAME}]' > /dev/null \
     && wipped=true \
     || true
 
