@@ -14,10 +14,11 @@
 #
 # MAYBE: Automate maintenance of these values.
 
-VERSION="1.0.0"
+VERSION="1.3.0"
 VERSION_DATE="2023-11-05"
 # INERT: Answer reason to add the commit SHA?
-#  VERSION_COMMIT="d10405e"
+#  # The commit SHA before the update-version commit.
+#  VERSION_COMMIT="e989201"
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
