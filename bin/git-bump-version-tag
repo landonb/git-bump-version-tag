@@ -7,6 +7,20 @@
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# DUNNO/2023-11-05: These values are not automatically maintained.
+# - So no promises I'll keep them current...
+# - For now, using ">=" in VERSION_FULL to let users know that the
+#   latest code may have drifted, ha.
+#
+# MAYBE: Automate maintenance of these values.
+
+VERSION="1.0.0"
+VERSION_DATE="2023-11-05"
+# INERT: Answer reason to add the commit SHA?
+#  VERSION_COMMIT="d10405e"
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 # YOU: Uncomment (or set from environment) for a dry run:
 #  DRY_RUN=true
 DRY_RUN=${DRY_RUN:-false}
@@ -32,6 +46,22 @@ CACHE_PROG_NAME="git-bump-version-tag"
 
 PROG_NAME="$(basename "$0")"
 
+# E.g., "git-bump-version-tag 1.0.0 2023-11-05"
+#
+# - MAYBE/2023-11-05: See comment above: Until automated, the version
+#   and date values might have become stale. So we're using ">=" to
+#   tell the user that these values might have drifted, e.g.,
+#
+#     "git-bump-version-tag >= 1.0.0 2023-11-05"
+#
+#   - NTHEN: After automating VERSION and VERSION_DATE, reset this string:
+#
+#       VERSION_FULL="${PROG_NAME} ${VERSION} ${VERSION_DATE}"
+#
+VERSION_FULL="${PROG_NAME} >= ${VERSION} ${VERSION_DATE}"
+
+# ***
+
 USAGE="\
 USAGE: ${PROG_NAME} [ACTIONS...] [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
 
@@ -51,6 +81,8 @@ ACTIONS:
   d|-d|delete
   P|-P|push
   c|-c|current
+  version|--version
+
 OPTIONS:
 
   And use optional bump options:
@@ -110,6 +142,9 @@ DETAILS
   - c, -c, cur, --cur, current, --current
                    Show current project version number
                    - Also show ▼ distance from HEAD if tag on older commit
+
+  - version, --version
+                   Show application (${PROG_NAME}'s) version number
 
 - BUMP OPTIONS:
 
@@ -189,7 +224,8 @@ PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
               (see note under <COMMIT>, above)
               - You can find git-put-wise at
                 https://github.com/DepoXy/git-put-wise#🥨
-"
+
+${VERSION_FULL}"
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -537,6 +573,12 @@ resolve_version_bump () {
         c | -c | cur | --cur | current | --current)
           # The currect project version.
           print_current_project_version_with_head_distance
+
+          exit_0
+          ;;
+        version | --version)
+          # The git-bump-version-tag version.
+          echo "${VERSION_FULL}"
 
           exit_0
           ;;
