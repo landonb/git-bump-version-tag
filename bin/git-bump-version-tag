@@ -81,7 +81,7 @@ OPTIONS: One or more of:
 - V, -V, v-del   Remove \"v\" tag prefix
                  - Removes v-prefix if previous tag was v-prefixed
 
-The \"patch\" option will be assumed if no option is specified
+The \"least\" option will be assumed if no option is specified
 
 Options can be specified individually or as a classic clump
 - E.g., \`git bump minor alpha\` is the same as \`git bump ma\`
@@ -564,8 +564,20 @@ resolve_version_bump () {
   fi
 
   if [ -z "${VERSION_TAG}" ]; then
-    # Ugh, apologies for such a long if, and long function...
-    if ! ${bump_verbatim}; then
+    if ${bump_verbatim}; then
+      # We default bump_verbatim=false, so this means user called us w/
+      # BUMP_VERBATIM=true. And if they didn't specify an action (they
+      # called `BUMP_VERBATIM=true git bump`), nothing happened, and
+      # usage says we default to 'least' action.
+      bump_least
+    else
+      # Ugh, apologies for such a long branch... and long function.
+      if [ ${bumps_count} -eq 0 ]; then
+        # No action (user called naked `git bump-version-tag`). Usage says
+        # defaults 'least'. We do it now while bump_verbatim still false.
+        bump_least
+      fi
+
       bump_verbatim=true
 
       # We could let user bump more than one part, e.g.,
@@ -616,7 +628,7 @@ resolve_version_bump () {
       fi
 
       if [ ${bumps_count} -eq 0 ]; then
-        # Should be impossible path, because ${part_or_version} defaults 'patch'.
+        # Should be impossible path, because bump_least above if ${bumps_count} -eq 0.
         >&2 echo "ERROR: Please specify a bump part (M|m|p|a|l) or choose same (s)."
 
         exit_1
