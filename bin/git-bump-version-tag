@@ -500,9 +500,9 @@ resolve_version_bump () {
           ACTION_PUSH=true
           ;;
         h | -h | help | --help)
-          >&2 echo "${USAGE}"
+          echo "${USAGE}"
 
-          exit_1
+          exit_0
           ;;
         M | -M | major) bump_major ;;
         m | -m | minor) bump_minor ;;
@@ -1929,6 +1929,12 @@ exit_1 () {
   _NORMAL_EXIT=true
 
   exit 1
+}
+
+exit_0 () {
+  _NORMAL_EXIT=true
+
+  exit 0
 }
 
 _WIPPED=false
