@@ -69,26 +69,26 @@ ACTIONS:
 
   Combine one or more bump actions:
 
-  M|-M|major
-  m|-m|minor
-  p|-p|patch
-  a|-a|alpha
-  l|-l|least
-  s|-s|same
+    M|-M|major
+    m|-m|minor
+    p|-p|patch
+    a|-a|alpha
+    l|-l|least
+    s|-s|same
 
   Or specify a different action:
 
-  d|-d|delete
-  P|-P|push
-  c|-c|current
-  version|--version
+    d|-d|delete
+    P|-P|push
+    c|-c|current
+    version|--version
 
 OPTIONS:
 
-  And use optional bump options:
+  Optional bump action options:
 
-  v|-v|v-pre
-  V|-V|v-del
+    v|-v|v-pre
+    V|-V|v-del
 
 
 DETAILS
