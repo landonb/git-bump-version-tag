@@ -50,6 +50,7 @@ ACTIONS:
 
   d|-d|delete
   P|-P|push
+  c|-c|current
 OPTIONS:
 
   And use optional bump options:
@@ -105,6 +106,10 @@ DETAILS
                    - First deletes the GitHub release, if exists
 
   - P, -P, push    Push tag (default action when not 'delete')
+
+  - c, -c, cur, --cur, current, --current
+                   Show current project version number
+                   - Also show ▼ distance from HEAD if tag on older commit
 
 - BUMP OPTIONS:
 
@@ -529,6 +534,12 @@ resolve_version_bump () {
 
           exit_0
           ;;
+        c | -c | cur | --cur | current | --current)
+          # The currect project version.
+          print_current_project_version_with_head_distance
+
+          exit_0
+          ;;
         M | -M | major) bump_major ;;
         m | -m | minor) bump_minor ;;
         p | -p | patch) bump_patch ;;
@@ -717,6 +728,25 @@ starts_with_alphanum () {
   local word="$1"
 
   echo "${word}" | command grep -q -E -e "^[a-zA-Z0-9]+$"
+}
+
+# ***
+
+print_current_project_version_with_head_distance () {
+  local curr_version_commit
+  local curr_vers_obj_short
+  local curr_vers_distance
+  local curr_vers_dist_suffix=""
+
+  curr_version_commit="$(git_tag_commit_object "${curr_version}")"
+  curr_vers_obj_short="$(git_sha_shorten "${curr_version_commit}")"
+  curr_vers_distance="$(git rev-list --count ${curr_version_commit}..HEAD)"
+
+  if [ ${curr_vers_distance} -ne 0 ]; then
+    curr_vers_dist_suffix=" 🔻${curr_vers_distance}"
+  fi
+
+  echo "${curr_version}${curr_vers_dist_suffix}"
 }
 
 # ***
