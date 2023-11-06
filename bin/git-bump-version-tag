@@ -28,8 +28,10 @@ BUMP_SKIP_REMOTE="-"
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+PROG_NAME="$(basename "$0")"
+
 USAGE="\
-USAGE: $(basename "$0") [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
+USAGE: ${PROG_NAME} [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
 
 OPTIONS: One or more of:
 
@@ -1933,7 +1935,7 @@ exit_cleanup () {
 
   if ! ${_NORMAL_EXIT}; then
     # Dev: Unexpected error path occurred, you might wanna graceify.
-    >&2 echo "ALERT: git-bump-version-tag exited abnormally!"
+    >&2 echo "ALERT: ${PROG_NAME} exited abnormally!"
     >&2 echo "- Hint: Enable \`set -x\` and run again..."
   fi
 }
