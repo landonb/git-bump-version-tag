@@ -96,13 +96,13 @@ DETAILS
 
 - BUMP ACTIONS:
 
-  - M, -M, major   Bump major version by one
+    M, -M, major   Bump major version by one
 
-  - m, -m, minor   Bump minor version by one
+    m, -m, minor   Bump minor version by one
 
-  - p, -p, patch   Bump patch version by one
+    p, -p, patch   Bump patch version by one
 
-  - a, -a, alpha   Bump pre-release version by one
+    a, -a, alpha   Bump pre-release version by one
                    - This only works if the pre-release part ends in a number
                    - Use BUMP_PRERELEASE_BASE to set the default prerelease
                      value (defaults: “${BUMP_PRERELEASE_BASE}”)
@@ -112,9 +112,9 @@ DETAILS
                      - BUMP_PRERELEASE_BASE is ignored if the previous tag
                        is already pre-release, and its value is used instead
 
-  - l, -l, least   Bump least part by one (either patch or pre-release)
+    l, -l, least   Bump least part by one (either patch or pre-release)
 
-  - s, -s, same    Use current version
+    s, -s, same    Use current version
                    - Useful if you only tagged locally,
                      and would like to push that tag now
                    - But if you didn't tag the current commit,
@@ -131,38 +131,38 @@ DETAILS
 
 - OTHER ACTIONS:
 
-  - d, -d, delete  Delete version tag (remote, then local)
+    d, -d, delete  Delete version tag (remote, then local)
                    - Unless specified, uses latest version
                    - Useful if you messed up — but it's on you to ensure it's
                      not too late to delete a tag you previously published
                    - First deletes the GitHub release, if exists
 
-  - P, -P, push    Push tag (default action when not 'delete')
+    P, -P, push    Push tag (default action when not 'delete')
 
-  - c, -c, cur, --cur, current, --current
+    c, -c, cur, --cur, current, --current
                    Show current project version number
                    - Also show ▼ distance from HEAD if tag on older commit
 
-  - version, --version
+    version, --version
                    Show application (${PROG_NAME}'s) version number
 
 - BUMP OPTIONS:
 
-  - v, -v, v-pre   Use \"v\" tag prefix
+    v, -v, v-pre   Use \"v\" tag prefix
                    - Adds v-prefix if previous tag was not v-prefixed
 
-  - V, -V, v-del   Remove \"v\" tag prefix
+    V, -V, v-del   Remove \"v\" tag prefix
                    - Removes v-prefix if previous tag was v-prefixed
 
 ARGUMENTS:
 
-- <VERSIONTAG>
+  <VERSIONTAG>
             Use this to specify the next version tag explicitly
             - Useful when versioning for the first time (though
               bump specifiers will bump from 0, so they work, too)
             - Useful for specifying a uniquely-named prerelease version
 
-- <REMOTE>  Specify which remote to use
+  <REMOTE>  Specify which remote to use
             - If not specified, will default to the remote specified
               by the local upstream branch
             - If local branch does not have an upstream (you can set
@@ -173,7 +173,7 @@ ARGUMENTS:
               could be interpreted as an OPTIONS sequence, or if the
               remote name is also a valid version
 
-- <COMMIT>  Specify commit to tag, either SHA-1 hash, or \"HEAD\"
+  <COMMIT>  Specify commit to tag, either SHA-1 hash, or \"HEAD\"
             - If not specified, defaults to remote branch HEAD commit
             - If \"HEAD\" is specified and git-put-wise is installed,
               this will tag only the most recent \"non-scoped\" local
@@ -186,10 +186,10 @@ ARGUMENTS:
 
 OVERRIDES: Set these environment variables for alternative behavior:
 
-- BUMP_PRERELEASE_BASE=\"${BUMP_PRERELEASE_BASE}\"
+  BUMP_PRERELEASE_BASE=\"${BUMP_PRERELEASE_BASE}\"
             Prerelease part prefix, used by a|alpha
 
-- BUMP_REMOTE_BRANCH_NAME=\"${BUMP_REMOTE_BRANCH_NAME}\"
+  BUMP_REMOTE_BRANCH_NAME=\"${BUMP_REMOTE_BRANCH_NAME}\"
             Name of remote branch whose HEAD commit will be tagged,
             if unable to determine the remote branch automatically
             - By default uses the default branch for the remote for
@@ -197,7 +197,7 @@ OVERRIDES: Set these environment variables for alternative behavior:
               from \`git remote show <remote>\`), and this environ is
               only used if the default branch is indeterminable
 
-- BUMP_VERBATIM=${BUMP_VERBATIM}
+  BUMP_VERBATIM=${BUMP_VERBATIM}
             If true, applies all patch options in the order encountered
             - E.g., if not verbatim, then
                 $ git bump Mmp
@@ -215,8 +215,8 @@ OVERRIDES: Set these environment variables for alternative behavior:
                 version at 1.2.4-alpha.1, 1.3.0-alpha.1, or 2.0.0-alpha.1
             - (As an aside, we're unclear if BUMP_VERBATIM is very useful)
 
-SCOPING_PREFIX=\"${SCOPING_PREFIX:-PROTECTED: }\"
-PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
+  SCOPING_PREFIX=\"${SCOPING_PREFIX:-PROTECTED: }\"
+  PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
             Specifies the commit message prefixes that designate which
             commits should not be published
             - Used when <COMMIT> is specified as \"HEAD\"
