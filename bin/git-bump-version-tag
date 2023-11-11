@@ -1660,6 +1660,10 @@ git_bump_tag_vers_push () {
           # This is the case: [ ${num_remotes} -gt 1 ]
           >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
           >&2 echo "- Please set a remote tracking branch and try again"
+          >&2 echo "  - E.g., if you've already pushed to the remote:"
+          >&2 echo "      git branch -u <remote/branch>"
+          >&2 echo "  - Or if this is your first push:"
+          >&2 echo "      git push -u <remote> <ref>:refs/heads/<branch>"
           >&2 echo "- Failed to consider applying ${VERSION_TAG}"
 
           exit_1
