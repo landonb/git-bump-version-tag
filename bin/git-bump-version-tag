@@ -788,7 +788,9 @@ print_current_project_version_with_head_distance () {
 
   curr_version_commit="$(git_tag_commit_object "${curr_version}")"
   curr_vers_obj_short="$(git_sha_shorten "${curr_version_commit}")"
-  curr_vers_distance="$(git rev-list --count ${curr_version_commit}..HEAD)"
+  # Get distance from scoped commit.
+  local scoped_head="$(print_scoped_head)"
+  curr_vers_distance="$(git rev-list --count ${curr_version_commit}..${scoped_head})"
 
   if [ ${curr_vers_distance} -ne 0 ]; then
     # E.g., "1.1.7 🔻17", or perhaps "1.1.7~17".
@@ -1739,8 +1741,6 @@ git_bump_tag_vers_push () {
     fi
   fi
 
-  local local_head_sha="$(git_HEAD_commit_sha)"
-
   if [ "${tag_commit}" = "HEAD" ]; then
     if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
       # Ensure branch names match (don't let user accidentally tag and
@@ -1755,23 +1755,14 @@ git_bump_tag_vers_push () {
       fi
     fi
 
-    # Optional: git-put-wise scope logic.
-    if ! command -v identify_scope_ends_at > /dev/null; then
-      tag_commit="${local_head_sha}"
-    else
-      # Exclude latest commits whose messages start with "PRIVATE: " or
-      # "PROTECTED: ". Use case: So you can keep some stuff private to
-      # your local repo without needing to maintain a separate feature
-      # branch.
-      tag_commit="$( \
-        identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
-      )"
-    fi
+    tag_commit="$(print_scoped_head)"
   fi
 
   local default_tag_commit="${tag_commit}"
 
   # ***
+
+  local local_head_sha="$(git_HEAD_commit_sha)"
 
   local CURR_VERSION="${curr_version}"
 
@@ -1801,6 +1792,27 @@ git_bump_tag_vers_push () {
   # ***
 
   git_pop_wip_commit_maybe "${_WIPPED}"
+}
+
+# ***
+
+print_scoped_head () {
+  local scoped_head_sha=""
+
+  # Optional: git-put-wise scope logic.
+  if ! command -v identify_scope_ends_at > /dev/null; then
+    scoped_head_sha="$(git_HEAD_commit_sha)"
+  else
+    # Exclude latest commits whose messages start with "PRIVATE: " or
+    # "PROTECTED: ". Use case: So you can keep some stuff private to
+    # your local repo without needing to maintain a separate feature
+    # branch.
+    scoped_head_sha="$( \
+      identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
+    )"
+  fi
+
+  printf "%s" "${scoped_head_sha}"
 }
 
 # ***
