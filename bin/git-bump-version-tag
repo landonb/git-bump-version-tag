@@ -61,6 +61,8 @@ PROG_NAME="$(basename "$0")"
 #
 VERSION_FULL="${PROG_NAME} >= ${VERSION} ${VERSION_DATE}"
 
+# Used by print_current_project_version_with_head_distance.
+VERSION_DISTANCE_SYMBOL="${VERSION_DISTANCE_SYMBOL:- 🔻}"
 # ***
 
 USAGE="\
@@ -786,7 +788,7 @@ print_current_project_version_with_head_distance () {
   curr_vers_distance="$(git rev-list --count ${curr_version_commit}..HEAD)"
 
   if [ ${curr_vers_distance} -ne 0 ]; then
-    curr_vers_dist_suffix=" 🔻${curr_vers_distance}"
+    curr_vers_dist_suffix="${VERSION_DISTANCE_SYMBOL}${curr_vers_distance}"
   fi
 
   echo "${curr_version}${curr_vers_dist_suffix}"
