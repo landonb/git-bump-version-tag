@@ -2082,7 +2082,6 @@ exit_cleanup () {
     >&2 echo "- Hint: Enable \`set -x\` and run again..."
   fi
 }
-trap exit_cleanup EXIT
 
 # ***
 
@@ -2091,15 +2090,17 @@ main () {
   # for unattended CI runs.
   set -e
 
+  trap exit_cleanup EXIT
+
   source_deps "${BASH_SOURCE[0]}" || exit_1
 
   git_bump_tag_vers_push "$@"
+
+  # Unhook exit_cleanup.
+  trap - EXIT
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
   main "${@}"
 fi
-
-# Unhook exit_cleanup.
-trap - EXIT
 
