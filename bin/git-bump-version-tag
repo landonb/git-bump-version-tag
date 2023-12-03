@@ -1231,6 +1231,21 @@ git_tag_remote_push () {
     echo "✓ Pushed remote branch"
   fi
 
+  # Let caller specify pre-version-tag-push hook.
+  # - Use case: The EAPP project uses this mechanism to push CI tags
+  #   to control the workflow that runs when the version tag is pushed.
+  #   - CXREF: https://github.com/doblabs/easy-as-pypi#🥧
+  # - USAGE:
+  #     git-bump-wrapper () {
+  #       my_pre_version_tag_push () { ; }
+  #       export -f my_pre_version_tag_push
+  #       BUMP_PRE_PUSH_HOOK="my_pre_version_tag_push" \
+  #         git-bump-version-tag "$@"
+  #     }
+  if [ -n "${BUMP_PRE_PUSH_HOOK}" ]; then
+    eval "${BUMP_PRE_PUSH_HOOK} \"${version_tag}\" \"${tag_commit}\" \"${remote_name}\""
+  fi
+
   # Note that GitHub automatically creates a release for the tag,
   # but it'll be replaced after your CI runs and creates a proper
   # release (well, assuming you have a release workflow tied to a
