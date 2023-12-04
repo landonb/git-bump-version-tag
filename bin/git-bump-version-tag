@@ -1585,10 +1585,8 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
 
     local commit_version="${existing_tags}"
 
-    # There's one Use Case for allowing two versions on the same commit:
-    # - One prerelease, One release.
-    # If you have another Use Case, plumb it and PR it, or open an Issue.
-    # - Because I'd love to learn of other use cases for multi-versioning.
+    # Use case(s) for allowing two versions on the same commit:
+    # - One pre-release, and one normal.
     if [ "${commit_version}" != "${version_tag}" ]; then
       local invalid_version=true
       local error_hint=""
