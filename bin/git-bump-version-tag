@@ -137,11 +137,13 @@ DETAILS
 
 - OTHER ACTIONS:
 
-    d, -d, delete  Delete version tag (remote, then local)
+    d, -d, delete  Delete version tag and GitHub release, if exists
                    - Unless specified, uses latest version
+                   - Deletes GitHub release first, if exists
+                   - Deletes remote version tag next, if exists
+                   - Deletes local tag last, if exists
                    - Useful if you messed up — but it's on you to ensure it's
                      not too late to delete a tag you previously published
-                   - First deletes the GitHub release, if exists
 
     P, -P, push    Push tag (default action when not 'delete')
 
