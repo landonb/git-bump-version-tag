@@ -1569,36 +1569,43 @@ insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease () {
     # If you have another Use Case, plumb it and PR it, or open an Issue.
     # - Because I'd love to learn of other use cases for multi-versioning.
     if [ "${commit_version}" != "${version_tag}" ]; then
-      local invalid_version=false
+      local invalid_version=true
       local error_hint=""
 
       if is_version_gt_version "${version_tag}" "${commit_version}"; then
         # Newer tag greater than existing tag.
-        if is_version_pre_release "${commit_version}" \
-          && is_version_normal "${version_tag}" \
-        ; then
-          >&2 echo "BWARE: Double-tagging commit: Adding Normal version to Pre-release"
-        elif is_version_pre_release "${version_tag}" \
-          && is_version_normal "${commit_version}" \
-        ; then
-          >&2 echo "BWARE: Double-tagging commit: Adding Pre-release version to Normal"
-        else
-          # Both versions are normal or both are pre-release.
-          invalid_version=true
+        if is_version_pre_release "${commit_version}"; then
+          # Existing version is pre-release.
+          if is_version_normal "${version_tag}"; then
+            # New version is normal.
+            invalid_version=false
 
-          error_hint="- Hint: You can mix a normal version and a pre-release version, but that's it."
+            >&2 echo "BWARE: Double-tagging commit: Adding Normal version to Pre-release"
+          else
+            # Both versions are pre-release.
+            error_hint="- Hint: You can apply a normal version to this commit, but not pre-release"
+          fi
+        else
+          # Existing version is normal.
+          if is_version_pre_release "${version_tag}"; then
+            # New version is pre-release.
+            invalid_version=false
+
+            >&2 echo "BWARE: Double-tagging commit: Adding Pre-release version to Normal"
+          else
+            # Both versions are normal.
+            error_hint="- Hint: You can apply a pre-release version to this commit, but not normal"
+          fi
         fi
       else
         # Newer tag less than existing tag.
-        invalid_version=true
-
         version_type=""
         if is_version_pre_release "${commit_version}"; then
           version_type="normal"
         else
           version_type="pre-release"
         fi
-        error_hint="- Hint: You could apply a ${version_type} version greater than ${commit_version}"
+        error_hint="- Hint: You can try a ${version_type} version greater than ${commit_version}"
       fi
 
       if ${invalid_version}; then
