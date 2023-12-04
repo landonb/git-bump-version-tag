@@ -714,8 +714,9 @@ resolve_version_bump () {
 
         exit_1
       elif ${warn_too_many}; then
-        >&2 echo "WARNING: Only the biggest non-alpha bump option will be used (${biggest})."
-        >&2 echo "- If you want to bump more than one part, toggle \`BUMP_VERBATIM=true\`"
+        >&2 echo "WARNING: Only the biggest normal option will be used (${biggest})"
+        ! ${balpha} || >&2 echo "- But we'll also include the specified pre-release bump"
+        >&2 echo "- If you want to bump more than one normal part, toggle \`BUMP_VERBATIM=true\`"
         # Otherwise don't specify more than one part (and no need to make this
         # warning message optional).
       fi
