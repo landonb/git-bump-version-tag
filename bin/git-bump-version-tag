@@ -87,6 +87,7 @@ ACTIONS:
     d|-d|delete
     P|-P|push
     c|-c|current
+    --check
     version|--version
 
 OPTIONS:
@@ -150,6 +151,19 @@ DETAILS
     c, -c, cur, --cur, current, --current
                    Show current project version number
                    - Also show ▼ distance from HEAD if tag on older commit
+
+    --check <bump> Exits 0 if \`${PROG_NAME} <bump>\` would succeed, else 1
+                   - Exits 0 if <bump> can be applied to the current commit
+                   - Exits 1 if current commit version(s) include same
+                     *version type* (normal or pre-release) as <bump>
+                     - Note that git-bump lets user apply both version
+                       tag types to the same commit, e.g.,
+                         first '1.2.3', then '1.2.4-alpha.1'; or
+                         first '1.2.4-alpha.1', then '1.2.4';
+                       So this lets automation check if current commit is
+                       versioned how user wants (normal or pre-release)
+                       (Vs. parsing output of failed \`${PROG_NAME} <bump>\`
+                        command, which itself is unreliable if UX changes)
 
     version, --version
                    Show application (${PROG_NAME}'s) version number
@@ -478,6 +492,8 @@ resolve_version_bump () {
     bump_bumps_count
     ! ${bump_verbatim} && balpha=true && return || true
 
+    BUMP_IS_PRERELEASE=true
+
     if [ -z "${prerelease}" ]; then
       # If no current alpha, must bump patch so new version is < current vers.
       ${bumped_patch_or_better} || let 'patch += 1'
@@ -503,6 +519,8 @@ resolve_version_bump () {
   VERSION_TAG=""
   ACTION_DELETE=false
   ACTION_PUSH=false
+  ACTION_CHECK=false
+  BUMP_IS_PRERELEASE=false
   REMOTE_NAME=""
   TAG_COMMIT=""
 
@@ -583,6 +601,11 @@ resolve_version_bump () {
           print_current_project_version_with_head_distance
 
           exit_0
+          ;;
+        --check)
+          # Check if <bump> "compatible" with current commit
+          # version tag(s), if any.
+          ACTION_CHECK=true
           ;;
         version | --version)
           # The git-bump-version-tag version.
@@ -1686,6 +1709,8 @@ git_bump_tag_vers_push () {
   local VERSION_TAG=""
   local ACTION_DELETE=false
   local ACTION_PUSH=false
+  local ACTION_CHECK=false
+  local BUMP_IS_PRERELEASE=false
   local REMOTE_NAME=""
   local TAG_COMMIT=""
   # If version specified, fails if not greater than current version.
@@ -1715,8 +1740,12 @@ git_bump_tag_vers_push () {
   tag_commit="$(resolve_tag_commit "${remote_name}" "${remote_branch}" "${remote_head_sha}")" \
     || exit_1
 
-  # Create or delete local and/or remote tags.
-  manage_tags "${tag_commit}" "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+  if ${ACTION_CHECK}; then
+    check_bump "${tag_commit}"
+  else
+    # Create or delete local and/or remote tags.
+    manage_tags "${tag_commit}" "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+  fi
 
   # ***
 
@@ -1905,6 +1934,32 @@ manage_tags () {
       "${local_head_sha}" \
       "${remote_head_sha}"
   fi
+}
+
+check_bump () {
+  local tag_commit="$1"
+
+  EXIT_CODE=0
+
+  local existing_tags
+  existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
+
+  local existing_tag
+  while IFS= read -r existing_tag; do
+    [ -n "${existing_tag}" ] || continue
+
+    if ${BUMP_IS_PRERELEASE}; then
+      if is_version_pre_release "${existing_tag}"; then
+        EXIT_CODE=1
+
+        break
+      fi
+    elif is_version_normal "${existing_tag}"; then
+      EXIT_CODE=1
+
+      break
+    fi
+  done <<< "${existing_tags}"
 }
 
 # ***
@@ -2204,10 +2259,14 @@ main () {
 
   source_deps "${BASH_SOURCE[0]}" || exit_1
 
+  local EXIT_CODE=0
+
   git_bump_tag_vers_push "$@"
 
   # Unhook exit_cleanup.
   trap - EXIT
+
+  return ${EXIT_CODE}
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
