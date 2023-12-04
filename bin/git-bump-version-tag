@@ -1696,6 +1696,36 @@ git_bump_tag_vers_push () {
 
   # ***
 
+  local remote_name
+  # Uses locals: REMOTE_NAME, VERSION_TAG, REMOTE_NAME.
+  remote_name="$(resolve_remote_name)" \
+    || exit_1
+
+  # Side-effect: Might git-fetch to get most recent tags.
+  curr_version="$(resolve_curr_version "${remote_name}" "${curr_version}")" \
+    || exit_1
+
+  local remote_branch
+  remote_branch="$(resolve_remote_branch "${remote_name}")" \
+    || exit_1
+
+  local remote_head_sha
+  remote_head_sha="$(resolve_remote_head_sha "${remote_name}" "${remote_branch}")"
+
+  local tag_commit
+  # Uses local(s): TAG_COMMIT.
+  tag_commit="$(resolve_tag_commit "${remote_name}" "${remote_branch}" "${remote_head_sha}")" \
+    || exit_1
+
+  # Create or delete local and/or remote tags.
+  manage_tags "${tag_commit}" "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+
+  # ***
+
+  git_pop_wip_commit_maybe "${_WIPPED}"
+}
+
+resolve_remote_name () {
   local remote_name="${REMOTE_NAME}"
 
   # Unless skipping remote push, warn if no remote; maybe fetch;
@@ -1725,7 +1755,7 @@ git_bump_tag_vers_push () {
           >&2 echo "      git push -u <remote> <ref>:refs/heads/<branch>"
           >&2 echo "- Failed to consider applying ${VERSION_TAG}"
 
-          exit_1
+          return 1
         fi
       else
         # Seems unnecessary:
@@ -1736,6 +1766,13 @@ git_bump_tag_vers_push () {
     fi
   fi
 
+  printf "%s" "${remote_name}"
+}
+
+resolve_curr_version () {
+  local remote_name="$1"
+  local curr_version="$2"
+
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # We don't necessarily care if the remote doesn't exist — we could still
     # tag the local branch, and then fail on/before the git-push — but this
@@ -1743,10 +1780,13 @@ git_bump_tag_vers_push () {
     # they really don't care, they can re-run the command with "-" as the
     # remote name to skip remote functionality. But really they'll probably
     # want to fix the local repo remote, or fix their bump-version-tags arg.
-    must_remote_exists "${remote_name}"
+    must_remote_exists "${remote_name}" \
+      || return 1
 
     # Fetch remote at least every hour (network call).
     periodically_fetch "${remote_name}"
+
+    # Insist remote/branch versioned the same, or re-run new version validation.
 
     local postfetch_curr_version="$(git_largest_version_tag)"
 
@@ -1756,33 +1796,52 @@ git_bump_tag_vers_push () {
       # We fetched tags from the remote and found a more recent
       # latest tag, so reapply the bump options to the actual
       # latest version.
-      must_resolve_new_version_tag "${curr_version}" "$@"
+      must_resolve_new_version_tag "${curr_version}" "$@" \
+        || return 1
     fi
   fi
 
-  # ***
+  printf "%s" "${curr_version}"
+}
 
-  # Insist remote/branch HEAD unversioned or matches desired.
-  local remote_branch
+resolve_remote_branch () {
+  local remote_name="$1"
+
+  local remote_branch=""
+
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
-      || exit_1
+      || return 1
 
     ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}" || true
   fi
 
-  # ***
+  printf "%s" "${remote_branch}"
+}
 
-  # Suss tag_commit from local_head_sha and remote_head_sha.
+resolve_remote_head_sha () {
+  local remote_name="$1"
+  local remote_branch="$2"
 
-  local tag_commit="${TAG_COMMIT}"
+  local remote_head_sha=""
 
-  local remote_head_sha
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     remote_head_sha="$(
       git_remote_branch_object_name "${remote_name}" "${remote_branch}"
     )"
   fi
+
+  printf "%s" "${remote_head_sha}"
+}
+
+resolve_tag_commit () {
+  local remote_name="$1"
+  local remote_branch="$2"
+  local remote_head_sha="$3"
+
+  # Suss tag_commit from local_head_sha and remote_head_sha.
+
+  local tag_commit="${TAG_COMMIT}"
 
   if [ -z "${tag_commit}" ]; then
     if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
@@ -1802,12 +1861,21 @@ git_bump_tag_vers_push () {
         >&2 echo "ERROR: Expected the same local and remote branch names"
         >&2 echo "- Not “${local_branch}” (local) and “${remote_branch}” (remote)"
 
-        exit_1
+        return 1
       fi
     fi
 
     tag_commit="$(print_scoped_head)"
   fi
+
+  printf "%s" "${tag_commit}"
+}
+
+manage_tags () {
+  local tag_commit="$1"
+  local remote_name="$2"
+  local remote_branch="$3"
+  local remote_head_sha="$4"
 
   local default_tag_commit="${tag_commit}"
 
@@ -1839,10 +1907,6 @@ git_bump_tag_vers_push () {
       "${local_head_sha}" \
       "${remote_head_sha}"
   fi
-
-  # ***
-
-  git_pop_wip_commit_maybe "${_WIPPED}"
 }
 
 # ***
