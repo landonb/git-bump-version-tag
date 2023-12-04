@@ -299,7 +299,7 @@ print_git_remote_default_branch_name () {
     >&2 echo "ERROR: No local branches found for remote '${remote_name}'." \
       "Perhaps you need to fetch?"
 
-    exit_1
+    return 1
   fi
 
   if [ ${num_branches} -eq 1 ]; then
@@ -322,7 +322,7 @@ print_git_remote_default_branch_name () {
   if [ -z "${remote_branch}" ]; then
     >&2 echo "FATAL: Where's remote branch?"
 
-    exit_1
+    return 1
   fi
 
   printf "%s" "${remote_branch}"
@@ -865,7 +865,7 @@ insist_new_version_semver_compliant () {
     # 
     #   >&2 echo "- Unexpected: You should never see this message!"
 
-    exit_1
+    return 1
   fi
 }
 
@@ -967,7 +967,7 @@ git_bump_confirm_normalize () {
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1 || true
+  [ $? -eq 0 ] || THE_CHOICE=""
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -1934,7 +1934,8 @@ prepare_push () {
 
   # *** Normalize the version
 
-  VERSION_TAG="$(normalize_version "${VERSION_TAG}")"
+  VERSION_TAG="$(normalize_version "${VERSION_TAG}")" \
+    || exit_1
 
   # *** Verify version order integrity between commits before and commits after
 
@@ -2043,7 +2044,8 @@ normalize_version () {
   fi
 
   local normal_vers
-  normal_vers="$(normalize_version_with_style "${VERSION_TAG}" "${normal_style}")"
+  normal_vers="$(normalize_version_with_style "${VERSION_TAG}" "${normal_style}")" \
+    || return 1
 
   # Unnecessary double-check (before adding dunamai and PEP440 support, this
   # script was the SemVer style enforcer; but now dunamai is in charge, so
@@ -2052,11 +2054,14 @@ normalize_version () {
   if [ "${normal_style}" = "semver" ] \
     && (! ${ACTION_DELETE} || ${ACTION_PUSH}) \
   ; then
-    insist_new_version_semver_compliant "${VERSION_TAG}"
+    insist_new_version_semver_compliant "${VERSION_TAG}" \
+      || return 1
   fi
 
   if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
     if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
+      [ -n "${THE_CHOICE}" ] || return 1
+
       VERSION_TAG="${normal_vers}"
     fi
   fi
@@ -2076,7 +2081,7 @@ normalize_version_with_style () {
   local temp_dir="$(mktemp -d /tmp/$(basename $0)-XXXXXXX)"
   [ ! -d "${temp_dir}" ] \
     && >&2 echo "ERROR: \`mktemp\` failed" \
-    && exit_1 \
+    && return 1 \
     || true
 
   cd "${temp_dir}"
@@ -2101,7 +2106,7 @@ normalize_version_with_style () {
   # DEV: Uncomment to leave temp dir:
   #
   #   >&2 echo "${temp_dir}"
-  #   exit_1
+  #   return 1
 
   /bin/rm -rf "${temp_dir}"
 }
