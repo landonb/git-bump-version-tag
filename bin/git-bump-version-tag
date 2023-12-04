@@ -861,7 +861,9 @@ insist_new_version_semver_compliant () {
     >&2 echo "ERROR: The new version is not SemVer compliant: ${vless_version}"
     # dunamai normalized the version value, and dunamai is never wrong
     # (so if you see this message, it's prob in GITSMART_RE_SEMVERSPARTS).
-    >&2 echo "- Unexpected: You should never see this message!"
+    # - WRONG: Possible when user specifies the new version directly.
+    # 
+    #   >&2 echo "- Unexpected: You should never see this message!"
 
     exit_1
   fi
