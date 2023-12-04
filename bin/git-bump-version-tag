@@ -650,19 +650,14 @@ resolve_version_bump () {
   fi
 
   if [ -z "${VERSION_TAG}" ]; then
-    if ${bump_verbatim}; then
-      # We default bump_verbatim=false, so this means user called us w/
-      # BUMP_VERBATIM=true. And if they didn't specify an action (they
-      # called `BUMP_VERBATIM=true git bump`), nothing happened, and
-      # usage says we default to 'least' action.
+    if [ ${bumps_count} -eq 0 ]; then
+      # No action (user called naked `git bump-version-tag`). Usage says
+      # defaults 'least'.
       bump_least
-    else
+    fi
+    # If bump-verbatim, the version was bumped during arg parsing.
+    if ! ${bump_verbatim}; then
       # Ugh, apologies for such a long branch... and long function.
-      if [ ${bumps_count} -eq 0 ]; then
-        # No action (user called naked `git bump-version-tag`). Usage says
-        # defaults 'least'. We do it now while bump_verbatim still false.
-        bump_least
-      fi
 
       bump_verbatim=true
 
