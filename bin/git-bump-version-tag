@@ -1307,7 +1307,7 @@ git_tag_remote_push () {
 #   has a prerelease version, and ${version_tag} is a release.
 #   See:
 #
-#     insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease
+#     insist_tag_commit_unversioned_or_same_version_or_opposing_types
 #
 #   - So the scenario described only happens if the user
 #     fails to delete remote tags after deleting locally.
@@ -1559,7 +1559,7 @@ print_smaller_vers_for_same_patch () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease () {
+insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
   local version_tag="$1"
   local tag_commit="$2"
   local remote_name="$3"
@@ -2066,7 +2066,7 @@ prepare_push () {
   if [ -n "${commit_version}" ]; then
     # We'll compare ${commit_version} and ${VERSION_TAG} after the if-else.
     # - See below:
-    #   insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease
+    #   insist_tag_commit_unversioned_or_same_version_or_opposing_types
 
     # SCOPE: Var. seen by caller.
     # - So that git_tag_local_add doesn't add same tag again.
@@ -2109,7 +2109,7 @@ prepare_push () {
   # above, but more robust. It checks no more than one tag already applied,
   # and there is a pre-existing tag, verifies new tag > old tag, and that
   # the new tag is normaling a pre-release version.
-  insist_tag_commit_unversioned_or_same_version_or_dropping_prerelease \
+  insist_tag_commit_unversioned_or_same_version_or_opposing_types \
     "${VERSION_TAG}" "${tag_commit}" "${remote_name}" "${remote_branch}"
 
   # *** Verify version order integrity between local and remote repos
