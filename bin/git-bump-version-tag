@@ -1577,8 +1577,9 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
     local num_versions="$(echo "${existing_tags}" | wc -l)"
 
     if [ ${num_versions} -gt 1 ]; then
-      >&2 echo "ERROR: The target commit “${refname}” already has more than one version tag:"
-      >&2 echo "${existing_tags}"
+      >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
+      >&2 echo "- This commit already has more than one version tag:"
+      echo "${existing_tags}" | >&2 sed 's/^/  /'
 
       exit_1
     fi
