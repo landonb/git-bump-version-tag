@@ -1574,21 +1574,46 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
   existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
 
   if [ -n "${existing_tags}" ]; then
-    local num_versions="$(echo "${existing_tags}" | wc -l)"
+    if ! version_tags_contain "${existing_tags}" "${version_tag}"; then
+      local num_versions="$(echo "${existing_tags}" | wc -l)"
 
-    if [ ${num_versions} -gt 1 ]; then
-      >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
-      >&2 echo "- This commit already has more than one version tag:"
-      echo "${existing_tags}" | >&2 sed 's/^/  /'
+      if [ ${num_versions} -gt 1 ]; then
+        >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
+        >&2 echo "- This commit already has more than one version tag:"
+        echo "${existing_tags}" | >&2 sed 's/^/  /'
+        if ${ACTION_SAME}; then
+          >&2 echo "GAFFE: Unexpected code path for 'same' action"
+        fi
 
-      exit_1
+        exit_1
+      fi
+
+      # There's only one tag on the commit.
+      local commit_version="${existing_tags}"
+
+      insist_existing_version_and_new_version_are_opposing_types \
+        "${commit_version}" "${version_tag}" "${refname}"
     fi
-
-    local commit_version="${existing_tags}"
-
-    insist_existing_version_and_new_version_are_opposing_types \
-      "${commit_version}" "${version_tag}" "${refname}"
+    # else, ${version_tag} already tagged on the (local) commit,
+    # so we'll keep going and see if it's tagged remotely, too.
   fi
+}
+
+version_tags_contain () {
+  local existing_tags="$1"
+  local version_tag="$2"
+
+  local existing_tag
+  while IFS= read -r existing_tag; do
+    [ -n "${existing_tag}" ] || continue
+
+    if [ "${existing_tag}" = "${version_tag}" ]; then
+
+      return 0
+    fi
+  done <<< "${existing_tags}"
+
+  return 1
 }
 
 # Use case(s) for allowing two versions on the same commit:
