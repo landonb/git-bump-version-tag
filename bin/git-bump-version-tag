@@ -1061,9 +1061,12 @@ git_tag_local_add () {
   local version_tag="$1"
   local tag_commit="$2"
   local curr_version="$3"
+  local junior_version="$4"
 
   if ! "${ACTION_PUSH}"; then
-    if [ "${version_tag}" = "${curr_version}" ]; then
+    if [ "${version_tag}" = "${curr_version}" ] \
+      || [ "${version_tag}" = "${junior_version}" ] \
+    ; then
       echo "✓ Local tag exists"
 
       return 0
@@ -1594,9 +1597,17 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
 
       insist_existing_version_and_new_version_are_opposing_types \
         "${commit_version}" "${version_tag}" "${refname}"
+    else
+      # Means ${version_tag} already tagged on the (local) commit.
+      # - This is a little hacky, or at least feels that way, but
+      #   update the CURR_VERSION complementary variable, so the
+      #   `git bump <vers>` on either current version tag.
+      if [ "${CURR_VERSION}" != "${version_tag}" ]; then
+        # CURR_VERSION is set to largest current commit tag,
+        # so JUNIOR_VERSION is a smaller version.
+        JUNIOR_VERSION="${version_tag}"
+      fi
     fi
-    # else, ${version_tag} already tagged on the (local) commit,
-    # so we'll keep going and see if it's tagged remotely, too.
   fi
 }
 
@@ -1948,8 +1959,11 @@ manage_tags () {
   local local_head_sha="$(git_HEAD_commit_sha)"
 
   local CURR_VERSION="${curr_version}"
+  # The penultimate version, or second, lesser-than
+  # version on a double- (or multi-) tagged commit.
+  local JUNIOR_VERSION=""
 
-  # Sets CURR_VERSION.
+  # Sets CURR_VERSION, JUNIOR_VERSION.
   push_or_delete \
     "${tag_commit}" \
     "${remote_name}" \
@@ -1963,7 +1977,7 @@ manage_tags () {
 
     tag_commit="${default_tag_commit}"
 
-    # Sets CURR_VERSION.
+    # Sets CURR_VERSION, JUNIOR_VERSION.
     push_or_delete \
       "${tag_commit}" \
       "${remote_name}" \
@@ -2030,12 +2044,12 @@ push_or_delete () {
   local remote_head_sha="$5"
 
   # SCOPE: Vars. from caller scope:
-  #  CURR_VERSION
+  #  CURR_VERSION, JUNIOR_VERSION
 
   local SKIP_PUSH_BRANCH=true
 
   if ! ${ACTION_DELETE}; then
-    # Sets SKIP_PUSH_BRANCH and CURR_VERSION.
+    # Sets SKIP_PUSH_BRANCH and CURR_VERSION, JUNIOR_VERSION.
     prepare_push \
       "${tag_commit}" \
       "${remote_name}" \
@@ -2044,7 +2058,8 @@ push_or_delete () {
       "${remote_head_sha}"
 
     # Tag the local commit (returns immediately if already tagged).
-    git_tag_local_add "${VERSION_TAG}" "${tag_commit}" "${CURR_VERSION}"
+    git_tag_local_add "${VERSION_TAG}" "${tag_commit}" \
+      "${CURR_VERSION}" "${JUNIOR_VERSION}"
   else
     # Set tag_commit to tag commit ID, which we pass to remote delete tag
     # so it can check for conflict (not that it really matters on delete,
@@ -2076,6 +2091,7 @@ prepare_push () {
 
   # SCOPE: Vars. seen by caller:
   #  CURR_VERSION=<set below>
+  #  JUNIOR_VERSION=<set fcn called below>
   #  SKIP_PUSH_BRANCH=<set here and below>
   SKIP_PUSH_BRANCH=false
 
