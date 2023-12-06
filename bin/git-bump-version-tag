@@ -986,7 +986,12 @@ git_bump_confirm_normalize () {
 
   local msg="Okay to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
 
-  local THE_CHOICE
+  # WRONG: Don't use local in this fcn:
+  #  local THE_CHOICE
+  # - REFER: normalize_version checks THE_CHOICE.
+  # - And there's no reason we need local on it,
+  #   either, other than being communicative about
+  #   scope.
   ask_yesnoskip_maybe "${msg}" "Y"
 
   [ $? -eq 0 ] || THE_CHOICE=""
@@ -2229,6 +2234,8 @@ normalize_version () {
   fi
 
   if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
+    local THE_CHOICE
+
     if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
       [ -n "${THE_CHOICE}" ] || return 1
 
