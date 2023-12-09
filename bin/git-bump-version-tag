@@ -1751,9 +1751,6 @@ git_bump_tag_vers_push () {
   # Insist run from within a Git project.
   git_insist_git_repo || exit_1
 
-  # Create temporary WIP commit if untidy.
-  _WIPPED="$(git_wip_commit_if_untidy)"
-
   # ***
 
   # Note that git-smart returns the latest version-looking tag.
@@ -1801,10 +1798,6 @@ git_bump_tag_vers_push () {
     # Create or delete local and/or remote tags.
     manage_tags "${tag_commit}" "${remote_name}" "${remote_branch}" "${remote_head_sha}"
   fi
-
-  # ***
-
-  git_pop_wip_commit_maybe "${_WIPPED}"
 }
 
 resolve_remote_name () {
@@ -1963,6 +1956,11 @@ manage_tags () {
 
   # ***
 
+  # Create temporary WIP commit if untidy.
+  _WIPPED="$(git_wip_commit_if_untidy)"
+
+  # ***
+
   local local_head_sha="$(git_HEAD_commit_sha)"
 
   local CURR_VERSION="${curr_version}"
@@ -1992,6 +1990,10 @@ manage_tags () {
       "${local_head_sha}" \
       "${remote_head_sha}"
   fi
+
+  # ***
+
+  git_pop_wip_commit_maybe "${_WIPPED}"
 }
 
 check_bump () {
