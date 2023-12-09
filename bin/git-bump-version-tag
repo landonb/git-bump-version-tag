@@ -1716,13 +1716,26 @@ is_version_normal () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+git_wip_staged_if_untidy () {
+  local staged=false
+
+  ! git_nothing_staged \
+    && git commit -q --no-verify -m 'PRIVATE: WIP (staged) [${CACHE_PROG_NAME}]' > /dev/null \
+    && staged=true \
+    || true
+
+  printf "%s" "${staged}"
+}
+
+# ***
+
 git_wip_commit_if_untidy () {
   local wipped=false
 
   # If nothing is staged, git-commit fails, but we'll check git-status anyway.
   test -n "$(git status --porcelain=v1)" \
     && git add -A \
-    && git commit -q --no-verify -m 'PRIVATE: WIP [${CACHE_PROG_NAME}]' > /dev/null \
+    && git commit -q --no-verify -m 'PRIVATE: WIP (untidy) [${CACHE_PROG_NAME}]' > /dev/null \
     && wipped=true \
     || true
 
@@ -1730,6 +1743,12 @@ git_wip_commit_if_untidy () {
 }
 
 # ***
+
+git_undo_staged_wip_commit_maybe () {
+  local staged="$1"
+
+  ${staged} && git reset --soft @~1 || true
+}
 
 git_pop_wipped_wip_commit_maybe () {
   local wipped="$1"
@@ -1956,7 +1975,8 @@ manage_tags () {
 
   # ***
 
-  # Create temporary WIP commit if untidy.
+  # Create temporary WIP commit(s) if staged and/or untidy
+  _STAGED="$(git_wip_staged_if_untidy)"
   _WIPPED="$(git_wip_commit_if_untidy)"
 
   # ***
@@ -1994,6 +2014,7 @@ manage_tags () {
   # ***
 
   git_pop_wipped_wip_commit_maybe "${_WIPPED}"
+  git_undo_staged_wip_commit_maybe "${_STAGED}"
 }
 
 check_bump () {
@@ -2300,10 +2321,12 @@ exit_1 () { _NORMAL_EXIT=true; exit 1; }
 
 exit_0 () { _NORMAL_EXIT=true; exit 0; }
 
+_STAGED=false
 _WIPPED=false
 
 exit_cleanup () {
   git_pop_wipped_wip_commit_maybe "${_WIPPED}"
+  git_undo_staged_wip_commit_maybe "${_STAGED}"
 
   if ! ${_NORMAL_EXIT}; then
     # Dev: Unexpected error path occurred, you might wanna graceify.
