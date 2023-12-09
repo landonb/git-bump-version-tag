@@ -1731,7 +1731,7 @@ git_wip_commit_if_untidy () {
 
 # ***
 
-git_pop_wip_commit_maybe () {
+git_pop_wipped_wip_commit_maybe () {
   local wipped="$1"
 
   ${wipped} && git reset -q --mixed @~1 || true
@@ -1993,7 +1993,7 @@ manage_tags () {
 
   # ***
 
-  git_pop_wip_commit_maybe "${_WIPPED}"
+  git_pop_wipped_wip_commit_maybe "${_WIPPED}"
 }
 
 check_bump () {
@@ -2303,7 +2303,7 @@ exit_0 () { _NORMAL_EXIT=true; exit 0; }
 _WIPPED=false
 
 exit_cleanup () {
-  git_pop_wip_commit_maybe "${_WIPPED}"
+  git_pop_wipped_wip_commit_maybe "${_WIPPED}"
 
   if ! ${_NORMAL_EXIT}; then
     # Dev: Unexpected error path occurred, you might wanna graceify.
