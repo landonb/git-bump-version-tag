@@ -806,11 +806,24 @@ starts_with_alphanum () {
 print_current_project_version_with_head_distance () {
   local curr_version="$1"
 
+  local best_version=""
+
   local curr_version_commit
   local curr_vers_distance
   local curr_vers_dist_suffix=""
 
-  curr_version_commit="$(git_tag_commit_object "${curr_version}")"
+  if [ -z "${curr_version}" ]; then
+    if [ -z ${BUMP_UNVERSIONED_VERSION+x} ]; then
+      best_version="${BUMP_UNVERSIONED_VERSION:-0.0.0}"
+    else
+      best_version="${BUMP_UNVERSIONED_VERSION}"
+    fi
+    curr_version_commit="$(git_first_commit_sha)"
+  else
+    best_version="${curr_version}"
+    curr_version_commit="$(git_tag_commit_object "${curr_version}")"
+  fi
+
   # Get distance from scoped commit.
   local scoped_head="$(print_scoped_head)"
   curr_vers_distance="$(git rev-list --count ${curr_version_commit}..${scoped_head})"
@@ -820,7 +833,7 @@ print_current_project_version_with_head_distance () {
     curr_vers_dist_suffix="${VERSION_DISTANCE_SYMBOL}${curr_vers_distance}"
   fi
 
-  echo "${curr_version}${curr_vers_dist_suffix}"
+  echo "${best_version}${curr_vers_dist_suffix}"
 }
 
 # ***
