@@ -600,7 +600,7 @@ resolve_version_bump () {
           ;;
         c | -c | cur | --cur | current | --current)
           # The currect project version.
-          print_current_project_version_with_head_distance
+          print_current_project_version_with_head_distance "${curr_version}"
 
           exit_0
           ;;
@@ -804,6 +804,8 @@ starts_with_alphanum () {
 # ***
 
 print_current_project_version_with_head_distance () {
+  local curr_version="$1"
+
   local curr_version_commit
   local curr_vers_obj_short
   local curr_vers_distance
