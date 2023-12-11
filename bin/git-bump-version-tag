@@ -807,12 +807,10 @@ print_current_project_version_with_head_distance () {
   local curr_version="$1"
 
   local curr_version_commit
-  local curr_vers_obj_short
   local curr_vers_distance
   local curr_vers_dist_suffix=""
 
   curr_version_commit="$(git_tag_commit_object "${curr_version}")"
-  curr_vers_obj_short="$(git_sha_shorten "${curr_version_commit}")"
   # Get distance from scoped commit.
   local scoped_head="$(print_scoped_head)"
   curr_vers_distance="$(git rev-list --count ${curr_version_commit}..${scoped_head})"
