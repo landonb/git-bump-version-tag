@@ -252,9 +252,6 @@ ${VERSION_FULL}"
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 source_deps () {
-  # Optional: 'pep440cmp'.
-  # https://github.com/hotoffthehamster/pep440-version-compare-cli
-
   # Need Dunamai to normalize for SemVer or PEP 440.
   # CXREF: https://github.com/mtkennerly/dunamai
   insist_cmd 'dunamai'
@@ -850,20 +847,6 @@ insist_next_version_gt_curr_version () {
     > /dev/null 2>&1 \
       || is_newer_version=false
 
-  # Optional: 'pep440cmp'
-  if ! command -v pep440cmp > /dev/null; then
-    if ${GIT_BUMP_VERSION_TAG_PEP400CMP_ENABLE:-false}; then
-      >&2 echo "ALERT: Cannot verify next version greater than current version."
-      >&2 echo "- Please install pep440cmp, e.g.,"
-      >&2 echo "    pipx install pep440-version-compare-cli"
-      >&2 echo "- CXREF:"
-      >&2 echo "    https://github.com/hotoffthehamster/pep440-version-compare-cli"
-    fi
-  else
-    pep440cmp "${next_version}" gt "${curr_version}" > /dev/null \
-      || is_newer_version=false
-  fi
-
   if ! ${is_newer_version}; then
     if ! ${ACTION_DELETE}; then
       >&2 echo "ERROR: Desired version not greater than current version!"
@@ -1444,8 +1427,6 @@ is_version_lt_version () {
     return 1
   fi
 
-  # 'pep440cmp' is optional, but we can do this without it.
-
   local lhs_normal
   local rhs_normal
 
@@ -1520,8 +1501,6 @@ is_version_gt_version () {
   if [ "${lhs_version}" = "${rhs_version}" ]; then
     return 1
   fi
-
-  # 'pep440cmp' is optional, but we can do this without it.
 
   local lhs_normal
   local rhs_normal
