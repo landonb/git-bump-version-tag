@@ -2297,7 +2297,15 @@ normalize_version_with_style () {
   # The two styles we support:
   #  dunamai from git --style semver
   #  dunamai from git --style pep440
-  dunamai from git --style "${normal_style}"
+
+  local warning
+  warning="$(dunamai from git --style "${normal_style}" 2>&1 > /dev/null)"
+  if [ -n "${warning}" ]; then
+    >&2 echo "ERROR: dunamai cannot extract ‘${prefixed_version}’ as ‘${normal_style}’:"
+    >&2 echo "$(echo "${warning}" | sed 's/^/  /')"
+  fi
+
+  dunamai from git --style "${normal_style}" 2> /dev/null
 
   cd - > /dev/null
 
