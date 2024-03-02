@@ -290,11 +290,11 @@ source_deps () {
 }
 
 insist_cmd () {
-  local cmdname="$1"
+  local cmd_name="$1"
 
-  command -v "${cmdname}" > /dev/null && return || true
+  command -v "${cmd_name}" > /dev/null && return || true
 
-  >&2 echo "ERROR: Missing system command ‘${cmdname}’."
+  >&2 echo "ERROR: Missing system command ‘${cmd_name}’."
 
   exit_1
 }
