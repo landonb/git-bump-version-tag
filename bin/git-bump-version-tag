@@ -254,7 +254,7 @@ ${VERSION_FULL}"
 source_deps () {
   # Need Dunamai to normalize for SemVer or PEP 440.
   # CXREF: https://github.com/mtkennerly/dunamai
-  insist_cmd 'dunamai'
+  insist_cmd 'dunamai' '- PSST: Try: `pipx install dunamai`'
 
   # Need Perl for fancy SemVer regex.
   insist_cmd 'perl'
@@ -291,10 +291,14 @@ source_deps () {
 
 insist_cmd () {
   local cmd_name="$1"
+  local install_hint="$2"
 
   command -v "${cmd_name}" > /dev/null && return || true
 
   >&2 echo "ERROR: Missing system command ‘${cmd_name}’."
+  if [ -n "${install_hint}" ]; then
+    >&2 echo "${install_hint}"
+  fi
 
   exit_1
 }
