@@ -45,7 +45,7 @@ BUMP_SKIP_REMOTE="-"
 
 CACHE_PROG_NAME="git-bump-version-tag"
 
-PROG_NAME="$(basename "$0")"
+PROG_NAME="$(basename -- "$0")"
 
 # E.g., "git-bump-version-tag 1.0.0 2023-11-05"
 #
@@ -264,7 +264,7 @@ source_deps () {
 
   # Load ask_yesnoskip.
   # https://github.com/landonb/sh-ask-yesnoskip
-  . "$(dirname "$(realpath "$0")")/../deps/sh-ask-yesnoskip/bin/ask-yesnoskip.sh"
+  . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-ask-yesnoskip/bin/ask-yesnoskip.sh"
 
   # Load git_* functions, including
   #   git_branch_name
@@ -276,14 +276,14 @@ source_deps () {
   # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs#🌰
   #   ~/.kit/sh/sh-git-nubs/bin/git-nubs.sh
-  . "$(dirname "$(realpath "$0")")/../deps/sh-git-nubs/bin/git-nubs.sh"
+  . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-git-nubs/bin/git-nubs.sh"
 
   # Optional: git-put-wise, for 'identify_scope_ends_at'.
   # CXREF: https://github.com/DepoXy/git-put-wise#🥨
   #   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
   #   ~/.kit/git/git-put-wise/lib/dep_apply_confirm_patch_base.sh
   if command -v git-put-wise > /dev/null; then
-    local put_wise_bin="$(dirname "$(realpath "$(command -v git-put-wise)")")"
+    local put_wise_bin="$(dirname -- "$(realpath -- "$(command -v git-put-wise)")")"
     . "${put_wise_bin}/../lib/common_put_wise.sh"
     . "${put_wise_bin}/../lib/dep_apply_confirm_patch_base.sh"
   fi
@@ -2276,7 +2276,7 @@ normalize_version_with_style () {
     prefixed_version="v${orig_version}"
   fi
 
-  local temp_dir="$(mktemp -d /tmp/$(basename $0)-XXXXXXX)"
+  local temp_dir="$(mktemp -d -- "/tmp/$(basename -- "$0")-XXXXXXX")"
   [ ! -d "${temp_dir}" ] \
     && >&2 echo "ERROR: \`mktemp\` failed" \
     && return 1 \
