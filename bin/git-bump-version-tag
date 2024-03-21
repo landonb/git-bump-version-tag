@@ -2314,7 +2314,7 @@ normalize_version_with_style () {
   #   >&2 echo "${temp_dir}"
   #   return 1
 
-  /bin/rm -rf "${temp_dir}"
+  command rm -rf -- "${temp_dir}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
