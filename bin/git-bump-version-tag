@@ -405,7 +405,7 @@ parse_version_parts () {
   # there is no v-prefix (i.e., ensure there's a word there for `read`).
   # - Use perl, not sed, because there's a Perl-only .*? non-greedy in the regex.
   partsstr="$(
-    command perl -pe "s/${GITSMART_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
+    perl -pe "s/${GITSMART_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
   )"
 
   echo "${partsstr}"
@@ -764,7 +764,7 @@ resolve_version_bump () {
 like_a_version () {
   local word="$1"
 
-  echo "${word}" | command grep -q -E "${GITSMART_RE_VERSPARTS}"
+  echo "${word}" | grep -q -E "${GITSMART_RE_VERSPARTS}"
 }
 
 is_known_remote () {
@@ -799,7 +799,7 @@ is_known_commit_sha () {
 starts_with_alphanum () {
   local word="$1"
 
-  echo "${word}" | command grep -q -E -e "^[a-zA-Z0-9]+$"
+  echo "${word}" | grep -q -E -e "^[a-zA-Z0-9]+$"
 }
 
 # ***
@@ -1360,21 +1360,21 @@ git_smallest_version_tag () {
 
   local smallest_patch="$( \
     git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*" \
-      | command grep -E -e "${GITSMART_RE_VERSPARTS}" \
-      | command sort -V \
-      | command head -n1
+      | grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | sort -V \
+      | head -n1
   )"
 
   # This is *ridonkulous*.
   local smallest_including_alpha="$( \
     git tag -l --contains "${since_commit}" "${smallest_patch}*" "v${smallest_patch}*" \
-      | command grep -E -e "${GITSMART_RE_VERSPARTS}" \
-      | command grep -E -v "^${smallest_patch}$" \
-      | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
-      | command sed '/^$/d' \
-      | command sort -k1,1 -k2,2n \
-      | command head -n1 \
-      | command sed -E "s/^[^,]*, [^,]*, //"
+      | grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | grep -E -v "^${smallest_patch}$" \
+      | perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
+      | sed '/^$/d' \
+      | sort -k1,1 -k2,2n \
+      | head -n1 \
+      | sed -E "s/^[^,]*, [^,]*, //"
   )"
 
   local smallest_version="${smallest_including_alpha}"
@@ -1443,8 +1443,8 @@ is_version_lt_version () {
     # them without their prerelease parts.
     local smaller_normal="$( \
       echo -e "${lhs_normal}\n${rhs_normal}" \
-        | command sort -V \
-        | command head -n1
+        | sort -V \
+        | head -n1
     )"
 
     if [ "${smaller_normal}" = "${lhs_normal}" ]; then
@@ -1518,8 +1518,8 @@ is_version_gt_version () {
     # them without their prerelease parts.
     local smaller_normal="$( \
       echo -e "${lhs_normal}\n${rhs_normal}" \
-        | command sort -V \
-        | command head -n1
+        | sort -V \
+        | head -n1
     )"
 
     if [ "${smaller_normal}" = "${rhs_normal}" ]; then
@@ -1546,7 +1546,7 @@ is_version_gt_version () {
 strip_prerelease () {
   local version_full="$1"
 
-  command perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${version_full}"
+  perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${version_full}"
 }
 
 # ***
@@ -1557,11 +1557,11 @@ print_smaller_vers_for_same_patch () {
   local rhs_version="$2"
 
   echo -e "${lhs_version}\n${rhs_version}" \
-    | command perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
-    | command sed '/^$/d' \
-    | command sort -k1,1r -k2,2n \
-    | command head -n1 \
-    | command sed -E "s/^[^,]*, [^,]*, //"
+    | perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
+    | sed '/^$/d' \
+    | sort -k1,1r -k2,2n \
+    | head -n1 \
+    | sed -E "s/^[^,]*, [^,]*, //"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
