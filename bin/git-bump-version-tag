@@ -259,8 +259,8 @@ source_deps () {
   # Need Perl for fancy SemVer regex.
   insist_cmd 'perl'
 
-  # Ensure coreutils installed (from Linux pkg. mgr., or from macOS Homebrew).
-  insist_cmd 'realpath'
+  # Ensure coreutils installed.
+  insist_cmd 'realpath' '- E.g., `apt install coreutils` or `brew install coreutils`'
 
   # Load ask_yesnoskip.
   # https://github.com/landonb/sh-ask-yesnoskip
