@@ -1127,10 +1127,11 @@ git_tag_local_add () {
       || exit_1
   fi
 
-  # Note that this command tags HEAD, as opposed to a specific branch.
+  # Note this command tags (scoped) HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
   #   git tag -a ${version_tag} -m "Version: ${version_tag}" "release"
-  # but that would probably be confusing to the user. So stick to HEAD.
+  # but that would probably be confusing to the user. So stick to the
+  # current branch.
 
   insist_git_user_configured
 
@@ -2195,11 +2196,7 @@ prepare_push () {
     if [ "${tag_commit}" = "${local_head_sha}" ]; then
       insist_next_version_gt_curr_version "${VERSION_TAG}" "${CURR_VERSION}" "${tag_commit}"
     else
-      # Means we're tagging an old commit.
-      # MEH: I don't know why we support this. Maybe I just wanted to
-      #      write hundreds of lines of more code to maintain.
-      # - Seems like a weird use case to support: Tagging old commit.
-
+      # Means we're tagging an old commit (which might be the scoped HEAD).
       local latest_smallest_version
       # This includes ${tag_commit} tags, but we checked that case
       # earlier, so we know ${tag_commit} is not versioned here.
