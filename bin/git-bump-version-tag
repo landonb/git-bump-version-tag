@@ -1008,6 +1008,12 @@ git_bump_confirm_normalize () {
   local normal_vers="$2"
   local normal_style="$3"
 
+  if ${BMP_NO_NORMALIZE:-false}; then
+    THE_CHOICE="n"
+
+    return 1
+  fi
+
   local msg="Okay to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
 
   # WRONG: Don't use local in this fcn:
