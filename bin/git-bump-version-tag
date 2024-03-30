@@ -614,6 +614,14 @@ resolve_version_bump () {
 
           exit_0
           ;;
+        D | -D | dist | --dist | distance | --distance)
+          # The currect project version.
+          VERSION_DISTANCE_ONLY="true" \
+          VERSION_DISTANCE_SYMBOL="" \
+            print_current_project_version_with_head_distance "${curr_version}"
+
+          exit_0
+          ;;
         --check)
           # Check if <bump> "compatible" with current commit
           # version tag(s), if any.
@@ -832,6 +840,10 @@ print_current_project_version_with_head_distance () {
   else
     best_version="${curr_version}"
     curr_version_commit="$(git_tag_commit_object "${curr_version}")"
+  fi
+
+  if ${VERSION_DISTANCE_ONLY:-false}; then
+    best_version=""
   fi
 
   # Get distance from scoped commit.
