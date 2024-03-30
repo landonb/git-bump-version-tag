@@ -2401,7 +2401,7 @@ main () {
   trap exit_cleanup EXIT
   trap int_cleanup INT
 
-  source_deps "${BASH_SOURCE[0]}" || exit_1
+  source_deps
 
   local EXIT_CODE=0
 
