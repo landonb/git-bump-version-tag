@@ -1782,15 +1782,23 @@ git_wip_commit_if_untidy () {
 # ***
 
 git_undo_staged_wip_commit_maybe () {
-  local staged="$1"
+  if ! ${_STAGED}; then
+    return 0
+  fi
 
-  ${staged} && git reset --soft @~1 || true
+  git reset --soft @~1
+
+  _STAGED=false
 }
 
 git_pop_wipped_wip_commit_maybe () {
-  local wipped="$1"
+  if ! ${_WIPPED}; then
+    return 0
+  fi
 
-  ${wipped} && git reset -q --mixed @~1 || true
+  git reset -q --mixed @~1
+
+  _WIPPED=false
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -2051,8 +2059,8 @@ manage_tags () {
 
   # ***
 
-  git_pop_wipped_wip_commit_maybe "${_WIPPED}"
-  git_undo_staged_wip_commit_maybe "${_STAGED}"
+  git_pop_wipped_wip_commit_maybe
+  git_undo_staged_wip_commit_maybe
 }
 
 check_bump () {
@@ -2367,14 +2375,20 @@ _STAGED=false
 _WIPPED=false
 
 exit_cleanup () {
-  git_pop_wipped_wip_commit_maybe "${_WIPPED}"
-  git_undo_staged_wip_commit_maybe "${_STAGED}"
+  git_pop_wipped_wip_commit_maybe
+  git_undo_staged_wip_commit_maybe
 
   if ! ${_NORMAL_EXIT}; then
     # Dev: Unexpected error path occurred, you might wanna graceify.
     >&2 echo "ALERT: ${PROG_NAME} exited abnormally!"
     >&2 echo "- Hint: Enable \`set -x\` and run again..."
   fi
+}
+
+int_cleanup () {
+  _NORMAL_EXIT=true
+
+  exit_cleanup
 }
 
 # ***
@@ -2385,6 +2399,7 @@ main () {
   set -e
 
   trap exit_cleanup EXIT
+  trap int_cleanup INT
 
   source_deps "${BASH_SOURCE[0]}" || exit_1
 
@@ -2392,8 +2407,8 @@ main () {
 
   git_bump_tag_vers_push "$@"
 
-  # Unhook exit_cleanup.
-  trap - EXIT
+  # Unhook traps.
+  trap - EXIT INT
 
   return ${EXIT_CODE}
 }
