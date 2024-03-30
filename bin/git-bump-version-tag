@@ -835,7 +835,8 @@ print_current_project_version_with_head_distance () {
   fi
 
   # Get distance from scoped commit.
-  local scoped_head="$(print_scoped_head)"
+  local scoped_head
+  scoped_head="$(print_scoped_head)"
   curr_vers_distance="$(git rev-list --count ${curr_version_commit}..${scoped_head})"
 
   if [ ${curr_vers_distance} -ne 0 ]; then
