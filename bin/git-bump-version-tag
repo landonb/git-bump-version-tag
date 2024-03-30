@@ -372,12 +372,14 @@ periodically_fetch () {
   local bump_config_section="tools.${PROG_NAME_FRIENDLY}"
   local bump_config_last_fetch="lastfetch"
 
+  local bump_fetch_period="${BUMP_FETCH_PERIOD:--1 hour}"
+
   local last_update="$(git config ${bump_config_section}.${bump_config_last_fetch})"
 
   local do_fetch=true
 
   if [ -n "${last_update}" ]; then
-    if [ ${last_update} -gt $(date -d '-1 hour' +'%s') ]; then
+    if [ ${last_update} -gt $(date -d "${bump_fetch_period}" +'%s') ]; then
       do_fetch=false
     fi
   fi
