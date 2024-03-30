@@ -519,6 +519,7 @@ resolve_version_bump () {
 
   local skip_opts=0
   local n_extra_args=0
+  local end_of_options=false
 
   # USYNC: version_tag_environs
   VERSION_TAG=""
@@ -537,7 +538,11 @@ resolve_version_bump () {
     shift
 
     if [ ${skip_opts} -gt 0 ]; then
-      if [ ${skip_opts} -eq 1 ]; then
+      if ! ${end_of_options} && [ "${cur_arg}" = '--' ]; then
+        skip_opts=1
+
+        end_of_options=true
+      elif [ ${skip_opts} -eq 1 ]; then
         if is_known_remote "${cur_arg}"; then
           skip_opts=2
 
@@ -569,8 +574,10 @@ resolve_version_bump () {
 
         exit_1
       fi
-    elif [ "${cur_arg}" = '--' ]; then
+    elif ! ${end_of_options} && [ "${cur_arg}" = '--' ]; then
       skip_opts=1
+
+      end_of_options=true
     elif like_a_version "${cur_arg}"; then
       skip_opts=1
 
