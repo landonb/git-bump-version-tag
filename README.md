@@ -1,4 +1,4 @@
-# git-bump-version-tag
+# git-bump-version-tag#🐫
 
 Glorified wrapper around essentially the 2-command sequence:
 
