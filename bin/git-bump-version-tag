@@ -43,7 +43,7 @@ BUMP_SKIP_REMOTE="-"
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-CACHE_PROG_NAME="git-bump-version-tag"
+PROG_NAME_FRIENDLY="git-bump-version-tag"
 
 PROG_NAME="$(basename -- "$0")"
 
@@ -369,7 +369,7 @@ periodically_fetch () {
   local remote_name="$1"
 
   # E.g., "tools.git-bump-version-tag".
-  BUMP_CONFIG_SECTION="tools.${CACHE_PROG_NAME}"
+  BUMP_CONFIG_SECTION="tools.${PROG_NAME_FRIENDLY}"
   BUMP_CONFIG_LAST_FETCH="lastfetch"
 
   local last_update="$(git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH})"
@@ -1716,7 +1716,7 @@ git_wip_staged_if_untidy () {
   local staged=false
 
   ! git_nothing_staged \
-    && git commit -q --no-verify -m 'PRIVATE: WIP (staged) [${CACHE_PROG_NAME}]' > /dev/null \
+    && git commit -q --no-verify -m 'PRIVATE: WIP (staged) [${PROG_NAME_FRIENDLY}]' > /dev/null \
     && staged=true \
     || true
 
@@ -1731,7 +1731,7 @@ git_wip_commit_if_untidy () {
   # If nothing is staged, git-commit fails, but we'll check git-status anyway.
   test -n "$(git status --porcelain=v1)" \
     && git add -A \
-    && git commit -q --no-verify -m 'PRIVATE: WIP (untidy) [${CACHE_PROG_NAME}]' > /dev/null \
+    && git commit -q --no-verify -m 'PRIVATE: WIP (untidy) [${PROG_NAME_FRIENDLY}]' > /dev/null \
     && wipped=true \
     || true
 
