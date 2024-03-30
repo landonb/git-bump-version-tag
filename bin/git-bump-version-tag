@@ -983,6 +983,12 @@ git_bump_confirm_next () {
   local version_tag="$1"
   local curr_version="$2"
 
+  if ${BMP_RESTRICT_LOCAL:-false}; then
+    THE_CHOICE="y"
+
+    return 0
+  fi
+
   local do_what_now="create first version tag at"
   if [ -n "${curr_version}" ]; then
     if [ -n "${TAG_COMMIT}" ]; then
@@ -1051,6 +1057,12 @@ git_bump_confirm_delete () {
 git_bump_confirm_push () {
   local version_tag="$1"
   local remote_name="$2"
+
+  if ${BMP_RESTRICT_LOCAL:-false}; then
+    THE_CHOICE="n"
+
+    return 1
+  fi
 
   local msg="Okay to push “${version_tag}” to “${remote_name}”"
 
