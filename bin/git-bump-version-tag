@@ -369,10 +369,10 @@ periodically_fetch () {
   local remote_name="$1"
 
   # E.g., "tools.git-bump-version-tag".
-  BUMP_CONFIG_SECTION="tools.${PROG_NAME_FRIENDLY}"
-  BUMP_CONFIG_LAST_FETCH="lastfetch"
+  local bump_config_section="tools.${PROG_NAME_FRIENDLY}"
+  local bump_config_last_fetch="lastfetch"
 
-  local last_update="$(git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH})"
+  local last_update="$(git config ${bump_config_section}.${bump_config_last_fetch})"
 
   local do_fetch=true
 
@@ -387,7 +387,7 @@ periodically_fetch () {
     # but should update default branch, too.
     git fetch "${remote_name}"
 
-    git config ${BUMP_CONFIG_SECTION}.${BUMP_CONFIG_LAST_FETCH} "$(date +%s)"
+    git config ${bump_config_section}.${bump_config_last_fetch} "$(date +%s)"
   fi
 }
 
