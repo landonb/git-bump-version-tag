@@ -1757,7 +1757,7 @@ git_wip_staged_if_untidy () {
   local staged=false
 
   ! git_nothing_staged \
-    && git commit -q --no-verify -m 'PRIVATE: WIP (staged) [${PROG_NAME_FRIENDLY}]' > /dev/null \
+    && git commit -q --no-verify -m "PRIVATE: WIP (staged) [${PROG_NAME_FRIENDLY}]" > /dev/null \
     && staged=true \
     || true
 
@@ -1772,7 +1772,7 @@ git_wip_commit_if_untidy () {
   # If nothing is staged, git-commit fails, but we'll check git-status anyway.
   test -n "$(git status --porcelain=v1)" \
     && git add -A \
-    && git commit -q --no-verify -m 'PRIVATE: WIP (untidy) [${PROG_NAME_FRIENDLY}]' > /dev/null \
+    && git commit -q --no-verify -m "PRIVATE: WIP (untidy) [${PROG_NAME_FRIENDLY}]" > /dev/null \
     && wipped=true \
     || true
 
