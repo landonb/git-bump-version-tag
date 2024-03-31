@@ -933,9 +933,8 @@ insist_next_version_gt_curr_version () {
 
   # Check next_version > curr_version (using fcn named as such because
   # that's how its error messages describe any issue, but we ignore those).
-  check_prev_version_gt_earlier_version \
-    "${next_version}" "${curr_version}" "${tag_commit}" \
-    > /dev/null 2>&1 \
+  check_version_tag_gt_earlier_version \
+    "${next_version}" "${curr_version}" "${_tag_commit:+}" "${_alert_fiver:+}" \
       || is_newer_version=false
 
   if ! ${is_newer_version}; then
@@ -1592,31 +1591,44 @@ is_version_lt_version () {
 
 # ***
 
-check_prev_version_gt_earlier_version () {
-  local prev_version="$1"
+check_version_tag_gt_earlier_version () {
+  local version_tag="$1"
   local earlier_version="$2"
   local tag_commit="$3"
+  local alert_fiver="${4:-ERROR}"
 
   if [ -z "${earlier_version}" ]; then
     return 0
   fi
 
-  if [ "${prev_version}" = "${earlier_version}" ]; then
-    >&2 echo "ERROR: Version “${prev_version}” already exists" \
-      "(at or before $(git_sha_shorten "${tag_commit}"))"
+  if [ "${version_tag}" = "${earlier_version}" ]; then
+    if [ -n "${alert_fiver}" ]; then
+      local addendum=""
+      if [ -n "${tag_commit}" ]; then
+        addendum=" (at or before $(git_sha_shorten "${tag_commit}"))"
+      fi
+
+      >&2 echo "${alert_fiver}: Version “${version_tag}” already exists${addendum}"
+    fi
 
     return 1
   fi
 
-  if is_version_gt_version "${prev_version}" "${earlier_version}"; then
+  if is_version_gt_version "${version_tag}" "${earlier_version}"; then
 
     return 0
   fi
 
-  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version"
-  >&2 echo "- Apply version: “${prev_version}”"
-  >&2 echo "- Target commit: “${tag_commit}”"
-  >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
+  local other_commit
+  other_commit="$(git_tag_commit_object "${earlier_version}")"
+
+  if [ "${alert_fiver}" = "ERROR" ]; then
+    >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version"
+    >&2 echo "- Apply version: “${version_tag}”"
+    >&2 echo "  - Dest commit: “${tag_commit}”"
+    >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
+    >&2 echo "  - From commit: “${other_commit}”"
+  fi
 
   return 1
 }
@@ -2414,7 +2426,7 @@ prepare_push () {
       # The --no-contains will look through those commits, but it also includes
       # any other line of work that doesn't contain ${tag_commit}.
       local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
-      if ! check_prev_version_gt_earlier_version \
+      if ! check_version_tag_gt_earlier_version \
         "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}" \
       ; then
 
