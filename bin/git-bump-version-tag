@@ -868,6 +868,8 @@ insist_next_version_gt_curr_version () {
 
   local is_newer_version=true
 
+  # Check next_version > curr_version (using fcn named as such because
+  # that's how its error messages describe any issue, but we ignore those).
   check_prev_version_gt_earlier_version \
     "${next_version}" "${curr_version}" "${tag_commit}" \
     > /dev/null 2>&1 \
@@ -875,14 +877,14 @@ insist_next_version_gt_curr_version () {
 
   if ! ${is_newer_version}; then
     if ! ${ACTION_DELETE}; then
-      >&2 echo "ERROR: Desired version not greater than current version!"
+      >&2 echo "ERROR: Desired version not greater than current version:"
       >&2 echo "  “${next_version}” !> “${curr_version}”"
 
       exit_1
     fi
 
     >&2 echo
-    >&2 echo "ALERT: You are deleting a version older than the current version!"
+    >&2 echo "ALERT: You are deleting an older version than the current version"
     >&2 echo
   fi
 }
@@ -1511,6 +1513,10 @@ check_prev_version_gt_earlier_version () {
   local prev_version="$1"
   local earlier_version="$2"
   local tag_commit="$3"
+
+  if [ -z "${earlier_version}" ]; then
+    return 0
+  fi
 
   if [ "${prev_version}" = "${earlier_version}" ]; then
     >&2 echo "ERROR: Version “${prev_version}” already exists" \
