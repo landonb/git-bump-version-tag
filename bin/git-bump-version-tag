@@ -477,18 +477,26 @@ must_resolve_user_args () {
 
   add_prefix () {
     vprefix="${GITNUBS_PREFIX:v}"
+
+    add_replay "${_replay_arg:-v}"
   }
 
   del_prefix () {
     vprefix=""
+
+    add_replay "${_replay_arg:-V}"
   }
 
   bump_bumps_count () {
+    local replay_arg="$1"
+
     let 'bumps_count += 1'
+
+    add_replay "${replay_arg}"
   }
 
   bump_major () {
-    bump_bumps_count
+    bump_bumps_count "M"
     ! ${bump_verbatim} && bmajor=true && return || true
 
     # Note that if var. unset, the let += 1 sets it to 1.
@@ -497,7 +505,7 @@ must_resolve_user_args () {
   }
 
   bump_minor () {
-    bump_bumps_count
+    bump_bumps_count "m"
     ! ${bump_verbatim} && bminor=true && return || true
 
     let 'minor += 1'; patch=0; prerelease=; finalnum=;
@@ -505,7 +513,7 @@ must_resolve_user_args () {
   }
 
   bump_patch () {
-    bump_bumps_count
+    bump_bumps_count "p"
     ! ${bump_verbatim} && bpatch=true && return || true
 
     # Only bump patch if no current alpha. Otherwise just drop alpha.
@@ -519,7 +527,7 @@ must_resolve_user_args () {
 
   # What SemVer calls "pre-release".
   bump_alpha () {
-    bump_bumps_count
+    bump_bumps_count "a"
     ! ${bump_verbatim} && balpha=true && return || true
 
     BUMP_IS_PRERELEASE=true
@@ -540,6 +548,18 @@ must_resolve_user_args () {
     else
       bump_patch
     fi
+
+    add_replay "${_replay_arg:-l}"
+  }
+
+  add_replay () {
+    local replay_arg="$1"
+
+    if ${end_of_options}; then
+      return 0
+    fi
+
+    REPLAY_ARGS="${REPLAY_ARGS}${replay_arg}"
   }
 
   local skip_opts=0
@@ -554,6 +574,7 @@ must_resolve_user_args () {
   BUMP_IS_PRERELEASE=false
   REMOTE_NAME_ARG=""
   TAG_COMMIT_ARG=""
+  REPLAY_ARGS=""
 
   local ACTION_SAME=false
   local VERSION_ARG=""
@@ -626,13 +647,16 @@ must_resolve_user_args () {
         s | -s | same)
           ACTION_SAME=true
           VERSION_TAG="${curr_version}"
+          add_replay "${_replay_arg:-s}"
           ;;
         d | -d | delete)
           ACTION_DELETE=true
           VERSION_TAG="${curr_version}"
+          add_replay "${_replay_arg:-d}"
           ;;
         P | -P | push)
           ACTION_PUSH=true
+          add_replay "${_replay_arg:-P}"
           ;;
         h | -h | help | --help)
           echo "${USAGE}"
@@ -657,6 +681,7 @@ must_resolve_user_args () {
           # Check if <bump> "compatible" with current commit
           # version tag(s), if any.
           ACTION_CHECK=true
+          add_replay "${_replay_arg:-x}"
           ;;
         version | --version)
           # The git-bump-version-tag version.
@@ -679,11 +704,15 @@ must_resolve_user_args () {
           for char in $(echo "${cur_arg#-}" | sed -E -e 's/(.)/\1\n/g'); do
             case ${char} in
               s) ACTION_SAME=true;
-                 VERSION_TAG="${curr_version}" ;;
+                 VERSION_TAG="${curr_version}";
+                 add_replay "${_replay_arg:-s}" ;;
               d) ACTION_DELETE=true;
-                 VERSION_TAG="${curr_version}" ;;
-              P) ACTION_PUSH=true ;;
-              x) ACTION_CHECK=true ;;
+                 VERSION_TAG="${curr_version}";
+                 add_replay "${_replay_arg:-d}" ;;
+              P) ACTION_PUSH=true;
+                 add_replay "${_replay_arg:-P}" ;;
+              x) ACTION_CHECK=true;
+                 add_replay "${_replay_arg:-x}" ;;
               M) bump_major ;;
               m) bump_minor ;;
               p) bump_patch ;;
@@ -701,6 +730,9 @@ must_resolve_user_args () {
       esac
     fi
   done
+
+  # So `add_replay` called from bump_* commands is a no-op.
+  end_of_options=true
 
   if [ -n "${VERSION_TAG}" ]; then
     # Means 'same' and/or 'delete' specified.
@@ -1939,6 +1971,7 @@ git_bump_tag_vers_push () {
   local BUMP_IS_PRERELEASE=false
   local REMOTE_NAME_ARG=""
   local TAG_COMMIT_ARG=""
+  local REPLAY_ARGS=""
   # If version specified, fails if not greater than current version.
   # If bump args specified (from CLI), fails on args error.
   # - Sets VERSION_TAG and ACTION_DELETE,
