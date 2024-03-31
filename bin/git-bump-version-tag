@@ -1017,7 +1017,7 @@ git_bump_confirm_normalize () {
     return 1
   fi
 
-  local msg="Okay to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
+  local msg="Want to normalize “${version_tag}” to “${normal_vers}” (${normal_style} style)"
 
   # WRONG: Don't use local in this fcn:
   #  local THE_CHOICE
