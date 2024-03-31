@@ -1840,8 +1840,7 @@ git_bump_tag_vers_push () {
   # ***
 
   local remote_name
-  # Uses local(s): VERSION_TAG.
-  remote_name="$(resolve_remote_name "${REMOTE_NAME}")" \
+  remote_name="$(resolve_remote_name "${REMOTE_NAME}" "${VERSION_TAG}")" \
     || exit_1
 
   # Side-effect: Might git-fetch to get most recent tags.
@@ -1871,6 +1870,7 @@ git_bump_tag_vers_push () {
 
 resolve_remote_name () {
   local remote_name="$1"
+  local version_tag="$2"
 
   # Unless skipping remote push, warn if no remote; maybe fetch;
   # and recalculate next version if new version tag was fetched.
@@ -1898,7 +1898,7 @@ resolve_remote_name () {
           >&2 echo "      git branch -u <remote/branch>"
           >&2 echo "  - Or if this is your first push:"
           >&2 echo "      git push -u <remote> <ref>:refs/heads/<branch>"
-          >&2 echo "- Failed to consider applying ${VERSION_TAG}"
+          >&2 echo "- Failed to consider applying ${version_tag}"
 
           return 1
         fi
