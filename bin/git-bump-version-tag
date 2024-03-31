@@ -1019,7 +1019,7 @@ ask_yesnoskip_maybe () {
         >&2 echo "OHYEA: Enabling auto-yesser (no tty or input on stdin)"
       fi
 
-      >&2 echo "Auto-yessing: ${the_ask}? [Y/n/s] Y"
+      >&2 echo "Auto-yessing: ${the_ask}? [y/n/s] Y"
 
       THE_CHOICE="y"
     else
