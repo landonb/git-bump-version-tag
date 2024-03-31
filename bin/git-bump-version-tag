@@ -273,7 +273,7 @@ source_deps () {
   #   git_remote_exists
   #   git_versions_tagged_for_commit_object
   #   git_tag_remote_verify_commit;
-  # and load environs, incl. GITSMART_RE_VERSPARTS, GITSMART_RE_SEMVERSPARTS.
+  # and load environs, incl. GITNUBS_RE_VERSPARTS, GITNUBS_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs#🌰
   #   ~/.kit/sh/sh-git-nubs/lib/git-nubs.sh
   . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-git-nubs/lib/git-nubs.sh"
@@ -398,7 +398,7 @@ periodically_fetch () {
 parse_version_parts () {
   local curr_version="$1"
 
-  # See also: GITSMART_RE_SEMVERSPARTS. Here we use looser regex so we
+  # See also: GITNUBS_RE_SEMVERSPARTS. Here we use looser regex so we
   # can read any style version and increment any part of it. Then later
   # we'll use the dunamai library to normalize the version according to
   # style.
@@ -407,7 +407,7 @@ parse_version_parts () {
   # there is no v-prefix (i.e., ensure there's a word there for `read`).
   # - Use perl, not sed, because there's a Perl-only .*? non-greedy in the regex.
   partsstr="$(
-    perl -pe "s/${GITSMART_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
+    perl -pe "s/${GITNUBS_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
   )"
 
   echo "${partsstr}"
@@ -781,7 +781,7 @@ resolve_version_bump () {
 like_a_version () {
   local word="$1"
 
-  echo "${word}" | grep -q -E "${GITSMART_RE_VERSPARTS}"
+  echo "${word}" | grep -q -E "${GITNUBS_RE_VERSPARTS}"
 }
 
 is_known_remote () {
@@ -901,7 +901,7 @@ verify_new_version_semver_compliant () {
 
   local semver
   semver="$(
-    perl -ne "print if /${GITSMART_RE_SEMVERSPARTS}/" <<<"${vless_version}"
+    perl -ne "print if /${GITNUBS_RE_SEMVERSPARTS}/" <<<"${vless_version}"
   )"
 
   if [ -z "${semver}" ]; then
@@ -1400,7 +1400,7 @@ git_smallest_version_tag () {
 
   local smallest_patch="$( \
     git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*" \
-      | grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
       | sort -V \
       | head -n1
   )"
@@ -1408,9 +1408,9 @@ git_smallest_version_tag () {
   # This is *ridonkulous*.
   local smallest_including_alpha="$( \
     git tag -l --contains "${since_commit}" "${smallest_patch}*" "v${smallest_patch}*" \
-      | grep -E -e "${GITSMART_RE_VERSPARTS}" \
+      | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
       | grep -E -v "^${smallest_patch}$" \
-      | perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
+      | perl -ne "print if s/${GITNUBS_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
       | sed '/^$/d' \
       | sort -k1,1 -k2,2n \
       | head -n1 \
@@ -1589,7 +1589,7 @@ is_version_gt_version () {
 strip_prerelease () {
   local version_full="$1"
 
-  perl -pe "s/${GITSMART_RE_VERSPARTS}/\2.\3.\5/" <<<"${version_full}"
+  perl -pe "s/${GITNUBS_RE_VERSPARTS}/\2.\3.\5/" <<<"${version_full}"
 }
 
 # ***
@@ -1600,7 +1600,7 @@ print_smaller_vers_for_same_patch () {
   local rhs_version="$2"
 
   echo -e "${lhs_version}\n${rhs_version}" \
-    | perl -ne "print if s/${GITSMART_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
+    | perl -ne "print if s/${GITNUBS_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
     | sed '/^$/d' \
     | sort -k1,1r -k2,2n \
     | head -n1 \
