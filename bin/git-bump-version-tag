@@ -437,6 +437,7 @@ parse_version_parts () {
   # Note the '!' in '\1!', so that `read` parses the string correctly when
   # there is no v-prefix (i.e., ensure there's a word there for `read`).
   # - Use perl, not sed, because there's a Perl-only .*? non-greedy in the regex.
+  local partsstr
   partsstr="$(
     perl -pe "s/${GITNUBS_RE_VERSPARTS}/\1! \2 \3 \5 \6 \7/" <<<"${curr_version}"
   )"
