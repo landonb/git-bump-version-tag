@@ -1464,15 +1464,21 @@ git_tag_remote_push () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-git_smallest_version_tag () {
+# Using --contains will find tags between ${since_commit} and any head
+# (so if you've rebased work after ${since_commit} and abandoned tags
+# in those other lines of work, --contains will find those tags).
+#    git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*"
+# Though a better approach uses --merged HEAD --no-merged <commit>
+# to keep the search to the current branch (because any version tags
+# outside this branch are incomparable to any version within it,
+# other than maybe larger version tags; though really no user should
+# have version tags in disparate lines of work, that seems shady).
+
+git_smallest_version_tag_after () {
   local since_commit="$1"
 
-  # Using --contains will find tags between ${since_commit} and any head
-  # (so if you've rebased work after ${since_commit} and abandoned tags
-  # in those other lines of work, --contains will find those tags).
-
   local smallest_patch="$( \
-    git tag -l --contains "${since_commit}" \
+    git tag -l --merged HEAD --no-merged "${since_commit}" \
       ${GITNUBS_VERSION_TAG_PATTERNS} \
       | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
       | sort -V \
@@ -1481,7 +1487,7 @@ git_smallest_version_tag () {
 
   # This is *ridonkulous*.
   local smallest_including_alpha="$( \
-    git tag -l --contains "${since_commit}" \
+    git tag -l --merged HEAD --no-merged "${since_commit}" \
       "${smallest_patch}*" \
       "${GITNUBS_PREFIX:-v}${smallest_patch}*" \
       | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
@@ -1501,7 +1507,7 @@ git_smallest_version_tag () {
 
 # ***
 
-check_prev_version_lt_later_version () {
+check_version_tag_lt_later_version () {
   local version_tag="$1"
   local later_version="$2"
   local tag_commit="$3"
@@ -2386,80 +2392,91 @@ prepare_push () {
   VERSION_TAG="$(normalize_version "${VERSION_TAG}")" \
     || exit_1
 
-  # *** Verify version order integrity between commits before and commits after
+  # *** Verify version order integrity between commits before,
+  #     commits after, commits elsewhere, and the tag_commit.
 
-  # Verify tag_commit not versioned, or same as ${VERSION_TAG}.
-  # - See also git_versions_tagged_for_commit_object, which finds all
-  #   version tags applied to a commit object. Here we identify just
-  #   the largest one.
-  local commit_version
-  commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+  # Find smallest tag between (tag_commit, HEAD] and check > new version.
+  local smallest_version_from_ahead
+  smallest_version_from_ahead="$( \
+    git_smallest_version_tag_after "${tag_commit}"
+  )"
+  if ! check_version_tag_lt_later_version \
+    "${VERSION_TAG}" "${smallest_version_from_ahead}" "${tag_commit}" \
+  ; then
 
-  if [ -n "${commit_version}" ]; then
-    # We'll compare ${commit_version} and ${VERSION_TAG} after the if-else.
-    # - See below:
-    #   insist_tag_commit_unversioned_or_same_version_or_opposing_types
-
-    # SCOPE: Var. seen by caller.
-    # - So that git_tag_local_add doesn't add same tag again.
-    CURR_VERSION="${commit_version}"
-  else
-    if [ "${tag_commit}" = "${local_head_sha}" ]; then
-      insist_next_version_gt_curr_version "${VERSION_TAG}" "${CURR_VERSION}" "${tag_commit}"
-    else
-      # Means we're tagging an old commit (which might be the scoped HEAD).
-      local latest_smallest_version
-      # This includes ${tag_commit} tags, but we checked that case
-      # earlier, so we know ${tag_commit} is not versioned here.
-      latest_smallest_version="$(git_smallest_version_tag "${tag_commit}")"
-      if ! check_prev_version_lt_later_version \
-        "${VERSION_TAG}" "${latest_smallest_version}" "${tag_commit}" \
-      ; then
-
-        exit_1
-      fi
-
-      # Note the --no-contains is more inclusive than finding tags from the
-      # first commit (git rev-list --max-parents=0 HEAD) through ${tag_commit}.
-      # The --no-contains will look through those commits, but it also includes
-      # any other line of work that doesn't contain ${tag_commit}.
-      local earlier_largest_version="$(git_largest_version_tag --no-contains ${tag_commit})"
-      if ! check_version_tag_gt_earlier_version \
-        "${VERSION_TAG}" "${earlier_largest_version}" "${tag_commit}" \
-      ; then
-
-        exit_1
-      fi
-    fi
+    exit_1
   fi
 
-  # This is similar to the [ "${commit_version}" != "${VERSION_TAG}" ] check
-  # above, but more robust. It checks no more than one tag already applied,
-  # and there is a pre-existing tag, verifies new tag > old tag, and that
-  # the new tag is normaling a pre-release version.
-  insist_tag_commit_unversioned_or_same_version_or_opposing_types \
-    "${VERSION_TAG}" "${tag_commit}" "${remote_name}" "${remote_branch}"
+  # Find largest tag beween [root, tag_commit) and check < new version.
+  local largest_version_from_behind="$( \
+    git_largest_version_tag --merged "${tag_commit}^"
+  )"
+  if ! check_version_tag_gt_earlier_version \
+    "${VERSION_TAG}" "${largest_version_from_behind}" "${tag_commit}" \
+  ; then
+
+    exit_1
+  fi
 
   # *** Verify version order integrity between local and remote repos
 
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    if ! ${SKIP_PUSH_BRANCH}; then
-      # We know ${tag_commit} != ${remote_head_sha} because ! ${SKIP_PUSH_BRANCH}.
+  # Verify tag_commit and remote/branch are in same line of work, unless:
+  # - The operation is local-only (remote_name is "-"); or
+  # - Skip-push is set, which means tag_commit same as remote_head_sha.
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] && ! ${SKIP_PUSH_BRANCH}; then
+    # We know ${tag_commit} != ${remote_head_sha} because ! ${SKIP_PUSH_BRANCH}.
+    if true \
+      && ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha} \
+      && ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit} \
+    ; then
+      >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
+      >&2 echo "- Check the remote (${remote_name}/${remote_branch})" \
+        "and the tag commit (${tag_commit})"
 
-      # Check if the local branch has more commits than the remote branch.
-      if ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha}; then
-        # Local ahead of remote.
-        if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
-          >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
-          >&2 echo "- Check the remote (${remote_name}/${remote_branch})" \
-            "and the tag commit (${tag_commit})"
-
-          exit_1
-        fi
-      fi
-      # else, remote ahead of local. Means we're tagging an old commit.
+      exit_1
     fi
-    # else, means we're not moving remote branch HEAD.
+  fi
+
+  # ***
+
+  # Check not more than one tag already applied to the target tag_commit;
+  # and if that commit is already tagged, verify that one tag is a normal
+  # tag and that the other tag is a pre-release tag (git-bump lets user
+  # apply both alpha and normal tags to any commit, in any order).
+  insist_tag_commit_unversioned_or_same_version_or_opposing_types \
+    "${VERSION_TAG}" "${tag_commit}" "${remote_name}" "${remote_branch}"
+
+  # ***
+
+  # Identify the largest version tag applied to tag_commit.
+  local commit_version
+  commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
+
+  # Remember so git_tag_local_add skips local tag if it exists.
+  if [ -n "${commit_version}" ]; then
+    CURR_VERSION="${commit_version}"
+  fi
+
+  # ***
+
+  # TRACK/2024-03-31: The next check is a subset of (and weaker than)
+  # the check above:
+  #   insist_tag_commit_unversioned_or_same_version_or_opposing_types
+  # But it precedes the check above, so keeping for now, as validation.
+  if ${GITNUBS_DEV:-false}; then
+    if ! insist_next_version_gt_curr_version \
+      "${VERSION_TAG}" "${CURR_VERSION}" "${tag_commit}" \
+    ; then
+      >&2 echo "GAFFE: Unexpected: These two calls disagree:"
+      >&2 echo
+      >&2 echo "  insist_tag_commit_unversioned_or_same_version_or_opposing_types \\"
+      >&2 echo "    \"${VERSION_TAG}\" \"${tag_commit}\" \"${remote_name}\" \"${remote_branch}\""
+      >&2 echo
+      >&2 echo "  insist_next_version_gt_curr_version \\"
+      >&2 echo "    \"${VERSION_TAG}"\ \"${CURR_VERSION}"\ \"${tag_commit}\""
+
+      exit_1
+    fi
   fi
 }
 
