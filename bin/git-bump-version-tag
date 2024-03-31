@@ -959,10 +959,8 @@ ask_yesnoskip_maybe () {
   local retcode=0
 
   if isa_tty; then
-    set +e
-    THE_CHOICE=$(SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}")
-    retcode=$?
-    set -e
+    THE_CHOICE=$(SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}") \
+      || retcode=$?
   else
     # Seems tedious, but we'll check if stdin has anything queued,
     # e.g., so user can pipe answers (not that I can think why anyone
@@ -988,12 +986,10 @@ ask_yesnoskip_maybe () {
 
       THE_CHOICE="y"
     else
-      set +e
       THE_CHOICE=$( \
         SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}" "${input_line}"
-      )
-      retcode=$?
-      set -e
+      ) \
+        || retcode=$?
 
       # Print what we read from the pipe to show input, and to wrap output.
       >&2 echo "${input_line}"
@@ -1241,7 +1237,7 @@ git_tag_remote_push () {
   # - The `git_tag_remote_verify_commit` function, below,
   #   calls git-ls-remote, which contacts the remote server.
 
-  local verify_result
+  local verify_result=0
 
   # Prefix the git_tag_remote_verify_commit output to better
   # distinguish it from other messages.
@@ -1258,10 +1254,8 @@ git_tag_remote_push () {
   #   - On error, returns GNUBS_FAILED (-1).
   # This call outputs "Sending remote request: ..."
   GNUBS_TAG_COMMIT_OBJECT=""
-  set +e
-  git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
-  verify_result=$?
-  set -e
+  git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}" \
+    || verify_result=$?
 
   if [ ${verify_result} -eq ${GNUBS_FAILED} ]; then
     >&2 echo "ERROR: git_tag_remote_verify_commit failed"
