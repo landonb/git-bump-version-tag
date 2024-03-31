@@ -1521,10 +1521,8 @@ check_prev_version_lt_later_version () {
     return 0
   fi
 
-  # ALTLY:
-  #   later_commit="$(git rev-list -n 1 "${later_version}")"
   local later_commit
-  later_commit="$(git rev-parse "${later_version}^{}")"
+  later_commit="$(git_tag_commit_object "${later_version}")"
 
   >&2 echo "ERROR: Cannot apply version to older commit larger than later version"
   >&2 echo "- Apply version: “${prev_version}”"
