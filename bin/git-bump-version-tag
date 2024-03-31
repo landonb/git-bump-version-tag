@@ -452,7 +452,7 @@ must_resolve_new_version_tag () {
   shift
 
   # Sets VERSION_TAG and ACTION_DELETE,
-  # and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT.
+  # and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT_ARG.
   resolve_version_bump "${curr_version}" "$@"
 }
 
@@ -560,7 +560,7 @@ resolve_version_bump () {
   ACTION_CHECK=false
   BUMP_IS_PRERELEASE=false
   REMOTE_NAME_ARG=""
-  TAG_COMMIT=""
+  TAG_COMMIT_ARG=""
 
   local ACTION_SAME=false
   local VERSION_ARG=""
@@ -582,7 +582,7 @@ resolve_version_bump () {
         elif is_known_commit_sha "${cur_arg}"; then
           skip_opts=3
 
-          TAG_COMMIT="${cur_arg}"
+          TAG_COMMIT_ARG="${cur_arg}"
         else
           >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
           local remote_name
@@ -596,7 +596,7 @@ resolve_version_bump () {
         skip_opts=3
 
         if is_known_commit_sha "${cur_arg}"; then
-          TAG_COMMIT="${cur_arg}"
+          TAG_COMMIT_ARG="${cur_arg}"
         else
           >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
 
@@ -625,7 +625,7 @@ resolve_version_bump () {
     elif is_known_commit_sha "${cur_arg}"; then
       skip_opts=3
 
-      TAG_COMMIT="${cur_arg}"
+      TAG_COMMIT_ARG="${cur_arg}"
     else
       case "${cur_arg}" in
         s | -s | same)
@@ -1062,7 +1062,7 @@ git_bump_confirm_next () {
 
   local do_what_now="create first version tag at"
   if [ -n "${curr_version}" ]; then
-    if [ -n "${TAG_COMMIT}" ]; then
+    if [ -n "${TAG_COMMIT_ARG}" ]; then
       do_what_now="backfill tag"
     else
       do_what_now="bump curr “${curr_version}” to"
@@ -1938,7 +1938,7 @@ git_bump_tag_vers_push () {
   local ACTION_CHECK=false
   local BUMP_IS_PRERELEASE=false
   local REMOTE_NAME_ARG=""
-  local TAG_COMMIT=""
+  local TAG_COMMIT_ARG=""
   # If version specified, fails if not greater than current version.
   # If bump args specified (from CLI), fails on args error.
   # - Sets VERSION_TAG and ACTION_DELETE,
@@ -1968,7 +1968,7 @@ git_bump_tag_vers_push () {
     || exit_1
 
   local tag_commit
-  # Uses local(s): TAG_COMMIT.
+  # Uses local(s): TAG_COMMIT_ARG.
   tag_commit="$(
     resolve_tag_commit "${remote_name}" "${remote_branch}" \
       "${remote_head_sha}" "${REMOTE_NAME_ARG}"
@@ -2171,7 +2171,7 @@ resolve_tag_commit () {
 
   # Suss tag_commit from local_head_sha and remote_head_sha.
 
-  local tag_commit="${TAG_COMMIT}"
+  local tag_commit="${TAG_COMMIT_ARG}"
 
   if [ -z "${tag_commit}" ]; then
     if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
