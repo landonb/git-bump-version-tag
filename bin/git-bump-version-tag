@@ -2001,9 +2001,9 @@ git_bump_tag_vers_push () {
     || exit_1
 
   local tag_commit
-  # Uses local(s): TAG_COMMIT_ARG.
-  tag_commit="$(
-    resolve_tag_commit "${remote_name}" "${remote_branch}" \
+  tag_commit="$( \
+    resolve_tag_commit "${TAG_COMMIT_ARG}" \
+      "${remote_name}" "${remote_branch}" \
       "${remote_head_sha}" "${REMOTE_NAME_ARG}"
   )" \
     || exit_1
@@ -2197,14 +2197,15 @@ resolve_remote_head_sha () {
 }
 
 resolve_tag_commit () {
-  local remote_name="$1"
-  local remote_branch="$2"
-  local remote_head_sha="$3"
-  local remote_name_arg="$4"
+  local tag_commit_arg="$1"
+  local remote_name="$2"
+  local remote_branch="$3"
+  local remote_head_sha="$4"
+  local remote_name_arg="$5"
 
   # Suss tag_commit from local_head_sha and remote_head_sha.
 
-  local tag_commit="${TAG_COMMIT_ARG}"
+  local tag_commit="${tag_commit_arg}"
 
   if [ -z "${tag_commit}" ]; then
     if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
