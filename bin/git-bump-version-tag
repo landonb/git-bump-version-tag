@@ -195,7 +195,8 @@ ARGUMENTS:
               could be interpreted as an OPTIONS sequence, or if the
               remote name is also a valid version
 
-  <COMMIT>  Specify commit to tag, either SHA-1 hash, or \"HEAD\"
+  <COMMIT>
+            Specify commit to tag, either SHA-1 hash, or \"HEAD\"
             - If not specified, defaults to remote branch HEAD commit
             - If \"HEAD\" is specified and git-put-wise is installed,
               this will tag only the most recent \"non-scoped\" local
