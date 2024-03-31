@@ -1051,7 +1051,7 @@ git_bump_confirm_next () {
     if [ -n "${TAG_COMMIT}" ]; then
       do_what_now="backfill tag"
     else
-      do_what_now="bump “${curr_version}” →"
+      do_what_now="bump curr “${curr_version}” to"
     fi
   fi
 
