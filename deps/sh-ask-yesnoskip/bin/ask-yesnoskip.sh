@@ -12,7 +12,6 @@
 ask_yesnoskip () {
   local the_ask="$1"
   local default_choice="${2:-N}"
-  local audit_choice="$3"
 
   # ***
 
@@ -32,23 +31,26 @@ ask_yesnoskip () {
   fi
 
   ${SKIP_PROMPT_NL:-false} || >&2 echo
-  >&2 printf %s "Please ${lng_opts}: ${the_ask}? [${sht_opts}] "
+  >&2 printf "%s" "Please ${lng_opts}: ${the_ask}? [${sht_opts}] "
 
   # ***
 
   local the_choice
 
-  if [ -z "${audit_choice}" ]; then
-    ${SKIP_PROMPTS:-false} \
-      && the_choice='s' \
-      || read -e the_choice
+  if ${SKIP_PROMPTS:-false}; then
+    the_choice='s'
   else
-    the_choice="${audit_choice}"
+    read -e the_choice
+
+    if [ -z "${the_choice}" ]; then
+      >&2 echo
+    fi
   fi
 
   # Use default if nothing input.
-  [ -z "${the_choice}" ] \
-    && the_choice="${default_choice}"
+  if [ -z "${the_choice}" ]; then
+    the_choice="${default_choice}"
+  fi
 
   # Lowercase the input.
   the_choice="${the_choice,,}"
