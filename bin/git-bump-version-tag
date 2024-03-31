@@ -265,7 +265,7 @@ source_deps () {
 
   # Load ask_yesnoskip.
   # https://github.com/landonb/sh-ask-yesnoskip
-  . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-ask-yesnoskip/bin/ask-yesnoskip.sh"
+  source_lib "${SHOILERPLATE:-${HOME}/.kit/sh}" "sh-ask-yesnoskip/bin/ask-yesnoskip.sh"
 
   # Load git_* functions, including
   #   git_branch_name
@@ -277,7 +277,7 @@ source_deps () {
   # and load environs, incl. GITNUBS_RE_VERSPARTS, GITNUBS_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs#🌰
   #   ~/.kit/sh/sh-git-nubs/lib/git-nubs.sh
-  . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-git-nubs/lib/git-nubs.sh"
+  source_lib "${SHOILERPLATE:-${HOME}/.kit/sh}" "sh-git-nubs/lib/git-nubs.sh"
 
   # Optional: git-put-wise, for 'identify_scope_ends_at'.
   # CXREF: https://github.com/DepoXy/git-put-wise#🥨
@@ -302,6 +302,27 @@ insist_cmd () {
   fi
 
   exit_1
+}
+
+source_lib () {
+  # For DepoXy users, the project parent directory.
+  local depoxy_basedir="$1"
+  # As fallback, check deps/ which ships with this project.
+  local deps_lib_path="$2"
+
+  local lib_name
+  lib_name="$(basename -- "${deps_lib_path}")"
+
+  if command -v "${lib_name}" > /dev/null && . "${lib_name}" \
+    || . "${depoxy_basedir}/${deps_lib_path}" 2> /dev/null \
+    || . "$(dirname -- "$(realpath -- "$0")")/../${deps_lib_path}" \
+  ; then
+    return 0
+  fi
+  
+  >&2 echo "ERROR: Cannot determine source path for dependency: ${lib_name}"
+
+  return 1
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
