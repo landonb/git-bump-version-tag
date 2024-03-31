@@ -672,6 +672,10 @@ must_resolve_user_args () {
         v | -v | v-pre) add_prefix ;;
         V | -V | v-del) del_prefix ;;
         *)
+          if [ -z "${cur_arg}" ]; then
+            >&2 echo "BWARE: Did you mean to pass an empty argument?"
+          fi
+
           for char in $(echo "${cur_arg#-}" | sed -E -e 's/(.)/\1\n/g'); do
             case ${char} in
               s) ACTION_SAME=true;
