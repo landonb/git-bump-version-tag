@@ -1822,7 +1822,8 @@ resolve_remote_name () {
   # and recalculate next version if new version tag was fetched.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Default to the remote tracking branch remote.
-    [ -n "${remote_name}" ] || remote_name="$(git_upstream_parse_remote_name)"
+    [ -n "${remote_name}" ] \
+      || remote_name="$(git_upstream_parse_remote_name 2> /dev/null)"
     # If no such tracking branch, use sole remote if only one set.
     if [ -z "${remote_name}" ]; then
       if [ -n "$(git remote -v)" ]; then
