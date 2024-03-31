@@ -2837,6 +2837,8 @@ main () {
 
   source_deps
 
+  GITNUBS_LENGTH_SHORT_SHA="${GITNUBS_LENGTH_SHORT_SHA:-7}"
+
   local EXIT_CODE=0
 
   git_bump_tag_vers_push "$@"
