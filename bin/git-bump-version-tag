@@ -2081,7 +2081,7 @@ resolve_remote_name_from_remotes () {
       return 1
     fi
   else
-    # Skip remote dealings.
+    # No remotes. Skip remote dealings.
     remote_name="${BUMP_SKIP_REMOTE}"
   fi
 
