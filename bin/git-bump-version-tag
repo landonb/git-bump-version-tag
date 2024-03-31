@@ -1433,7 +1433,8 @@ check_prev_version_lt_later_version () {
   fi
 
   if [ "${prev_version}" = "${later_version}" ]; then
-    >&2 echo "ERROR: Version “${later_version}” already exists."
+    >&2 echo "ERROR: Version “${later_version}” already exists" \
+      "(since $(git_sha_shorten "${tag_commit}"))"
 
     return 1
   fi
@@ -1515,7 +1516,8 @@ check_prev_version_gt_earlier_version () {
   # did it first. But just so you know this case won't happen.
   #
   if [ "${prev_version}" = "${earlier_version}" ]; then
-    >&2 echo "ERROR: Version “${prev_version}” already exists."
+    >&2 echo "ERROR: Version “${prev_version}” already exists" \
+      "(at or before $(git_sha_shorten "${tag_commit}"))"
 
     return 1
   fi
