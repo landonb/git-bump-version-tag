@@ -452,7 +452,7 @@ must_resolve_new_version_tag () {
   shift
 
   # Sets VERSION_TAG and ACTION_DELETE,
-  # and maybe REMOTE_NAME, and/or TAG_COMMIT.
+  # and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT.
   resolve_version_bump "${curr_version}" "$@"
 }
 
@@ -559,7 +559,7 @@ resolve_version_bump () {
   ACTION_PUSH=false
   ACTION_CHECK=false
   BUMP_IS_PRERELEASE=false
-  REMOTE_NAME=""
+  REMOTE_NAME_ARG=""
   TAG_COMMIT=""
 
   local ACTION_SAME=false
@@ -578,7 +578,7 @@ resolve_version_bump () {
         if is_known_upstream "${cur_arg}"; then
           skip_opts=2
 
-          REMOTE_NAME="${cur_arg}"
+          REMOTE_NAME_ARG="${cur_arg}"
         elif is_known_commit_sha "${cur_arg}"; then
           skip_opts=3
 
@@ -621,7 +621,7 @@ resolve_version_bump () {
     elif is_known_upstream "${cur_arg}"; then
       skip_opts=2
 
-      REMOTE_NAME="${cur_arg}"
+      REMOTE_NAME_ARG="${cur_arg}"
     elif is_known_commit_sha "${cur_arg}"; then
       skip_opts=3
 
@@ -820,7 +820,7 @@ like_a_version () {
   echo "${word}" | grep -q -E "${GITNUBS_RE_VERSPARTS}"
 }
 
-# Check if <UPSTREAM> arg (REMOTE_NAME)
+# Check if <UPSTREAM> arg (REMOTE_NAME_ARG)
 is_known_upstream () {
   local upstream="$1"
 
@@ -1937,18 +1937,18 @@ git_bump_tag_vers_push () {
   local ACTION_PUSH=false
   local ACTION_CHECK=false
   local BUMP_IS_PRERELEASE=false
-  local REMOTE_NAME=""
+  local REMOTE_NAME_ARG=""
   local TAG_COMMIT=""
   # If version specified, fails if not greater than current version.
   # If bump args specified (from CLI), fails on args error.
   # - Sets VERSION_TAG and ACTION_DELETE,
-  #   and maybe REMOTE_NAME, and/or TAG_COMMIT.
+  #   and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT.
   must_resolve_new_version_tag "${curr_version}" "$@"
 
   # ***
 
   local remote_name
-  remote_name="$(resolve_remote_name "${REMOTE_NAME}" "${VERSION_TAG}")" \
+  remote_name="$(resolve_remote_name "${REMOTE_NAME_ARG}" "${VERSION_TAG}")" \
     || exit_1
 
   # Side-effect: Might git-fetch to get most recent tags.
@@ -1957,7 +1957,7 @@ git_bump_tag_vers_push () {
 
   local remote_branch
   local DEFAULT_BRANCH=""
-  remote_branch="$(resolve_remote_branch "${remote_name}" "${REMOTE_NAME}")" \
+  remote_branch="$(resolve_remote_branch "${remote_name}" "${REMOTE_NAME_ARG}")" \
     || exit_1
 
   local remote_head_sha
@@ -1971,7 +1971,7 @@ git_bump_tag_vers_push () {
   # Uses local(s): TAG_COMMIT.
   tag_commit="$(
     resolve_tag_commit "${remote_name}" "${remote_branch}" \
-      "${remote_head_sha}" "${REMOTE_NAME}"
+      "${remote_head_sha}" "${REMOTE_NAME_ARG}"
   )" \
     || exit_1
 
