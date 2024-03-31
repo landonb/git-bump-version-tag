@@ -346,6 +346,8 @@ print_git_remote_default_branch_name () {
   fi
 
   if [ ${num_branches} -eq 1 ]; then
+    # Avoid network call to verify this is the actual remote default branch.
+    # - Just assume it is.
     remote_branch="$(echo "${branch_names}" | sed 's#^.*/##')"
   else
     # Note that git_remote_default_branch is a network call (git remote show),
@@ -361,7 +363,6 @@ print_git_remote_default_branch_name () {
     fi
   fi
 
-  # Shouldn't happen, we assume.
   if [ -z "${remote_branch}" ]; then
     >&2 echo "ERROR: No default branch found for remote “${remote_name}”"
 
@@ -1255,6 +1256,7 @@ git_tag_remote_push () {
   #     prompts user to delete that tag from the remote.
   #   - If tag doesn't exist, returns GNUBS_TAG_ABSENT (1).
   #   - On error, returns GNUBS_FAILED (-1).
+  # This call outputs "Sending remote request: ..."
   GNUBS_TAG_COMMIT_OBJECT=""
   set +e
   git_tag_remote_verify_commit "${version_tag}" "${remote_name}" "${tag_commit}"
@@ -1936,8 +1938,6 @@ resolve_remote_name_from_remotes () {
       return 1
     fi
   else
-    # Seems unnecessary:
-    #   >&2 echo "BWARE: There are no remotes. You can only version locally"
     # Skip remote dealings.
     remote_name="${BUMP_SKIP_REMOTE}"
   fi
@@ -2021,6 +2021,11 @@ resolve_tag_commit () {
 
   if [ -z "${tag_commit}" ]; then
     if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+      # ALERT: Defaults to tagging remote/branch HEAD.
+      # - Why? Because git-bump is meant to publish a new version.
+      #        But it doesn't want to push unpublished commits. So
+      #        it picks the most recent published commit.
+      #        - User can override by specifying "HEAD" <COMMIT>.
       tag_commit="${remote_head_sha}"
     else
       tag_commit="HEAD"
