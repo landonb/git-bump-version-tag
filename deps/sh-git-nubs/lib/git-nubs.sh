@@ -192,9 +192,9 @@ git_first_commit_sha () {  # aka git_root_commit_sha, perhaps
 
 git_sha_shorten () {
   local string="$1"
-  local maxlen="${2:-${GIT_NUBS_LENGTH_SHORT_SHA:-12}}"
+  local maxlen="${2:-${GITNUBS_LENGTH_SHORT_SHA:-12}}"
 
-  if [ -z "${string}" ]; then
+  if [ $# -eq 0 ]; then
     string="$(git_HEAD_commit_sha)"
   fi
 
@@ -248,7 +248,7 @@ git_parent_of () {
 # print counts per author.
 git_number_of_commits () {
   local gitref="${1:-HEAD}"
-  [ -z "$1" ] || shift
+  [ $# -lt 1 ] || shift
 
   git rev-list --count "${gitref}" "$@"
 }
@@ -271,7 +271,7 @@ git_remote_branch_exists () {
 git_remote_branch_object_name () {
   local remote_branch="$(_git_print_remote_branch_unambiguous "${1}" "${2}")"
 
-  # Prints SHA1.
+  # Prints SHA on success, or repeats input and returns nonzero on failure
   git rev-parse "${remote_branch}" 2> /dev/null
 }
 
@@ -282,7 +282,7 @@ _git_print_remote_branch_unambiguous () {
 
   local remote_branch=""
 
-  if [ -z "${branch}" ]; then
+  if [ $# -lt 2 ]; then
     # Assume caller passed in remote/branch.
     remote_branch="${remote}"
   else
@@ -444,12 +444,12 @@ git_insist_pristine () {
 
   local projpath="${1:-$(pwd)}"
 
-  ${GIT_NUBS_SURROUND_ERROR:-true} && >&2 echo || true
+  ${GITNUBS_SURROUND_ERROR:-true} && >&2 echo || true
   >&2 echo "ERROR: Working directory not tidy."
   >&2 echo "- HINT: Try:"
   >&2 echo
   >&2 echo "   cd \"${projpath}\" && git status"
-  ${GIT_NUBS_SURROUND_ERROR:-true} && >&2 echo || true
+  ${GITNUBS_SURROUND_ERROR:-true} && >&2 echo || true
 
   return 1
 }
@@ -463,7 +463,7 @@ git_insist_tidy () {
 git_nothing_staged () {
   local filepath="$1"
 
-  if [ -z "${filepath}" ]; then
+  if [ $# -eq 0 ]; then
     git diff --cached --quiet
   else
     git diff --cached --quiet -- "${filepath}"
@@ -475,12 +475,12 @@ git_insist_nothing_staged () {
 
   local projpath="${1:-$(pwd)}"
 
-  ${GIT_NUBS_SURROUND_ERROR:-true} && >&2 echo || true
+  ${GITNUBS_SURROUND_ERROR:-true} && >&2 echo || true
   >&2 echo "ERROR: Working directory has staged changes."
   >&2 echo "- HINT: Try:"
   >&2 echo
   >&2 echo "   cd \"${projpath}\" && git status"
-  ${GIT_NUBS_SURROUND_ERROR:-true} && >&2 echo || true
+  ${GITNUBS_SURROUND_ERROR:-true} && >&2 echo || true
 
   return 1
 }
@@ -568,7 +568,7 @@ git_is_commit () {
 git_versions_tagged_for_commit_object__THE_HARD_WAY () {
   local hash="$1"
 
-  if [ -z "${hash}" ]; then
+  if [ $# -eq 0 ]; then
     hash="$(git_HEAD_commit_sha)"
   fi
 
@@ -1079,7 +1079,9 @@ git_tag_remote_verify_commit () {
 
   local git_cmd="git ls-remote --tags ${remote_name} ${tag_name}"
 
-  printf '%s' "Sending remote request: ‘${git_cmd}’... "
+  printf '%s' "Sending remote request: ‘${git_cmd}’..."
+
+  local remote_tag_hash_and_path=""
 
   # UWAIT: This is a network call and takes a moment.
   if ! remote_tag_hash_and_path="$(${git_cmd})"; then
@@ -1089,11 +1091,14 @@ git_tag_remote_verify_commit () {
 
     return ${retcode}
   fi
-  #
+
   # SAVVY: The default `cut` delimiter is <Tab>.
   remote_tag_hash="$(echo "${remote_tag_hash_and_path}" | cut -f1)"
-  #
-  printf '%s\n' " ${remote_tag_hash}"
+
+  # Finish the output message.
+  printf '%s\n' " $( \
+    git_sha_shorten "${remote_tag_hash}" ${GITNUBS_LENGTH_SHORTER_SHA:-7}
+  )"
 
   if [ -z "${remote_tag_hash}" ]; then
     retcode=${GNUBS_TAG_ABSENT}
