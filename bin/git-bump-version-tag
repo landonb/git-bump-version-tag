@@ -447,18 +447,11 @@ parse_version_parts () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-must_resolve_new_version_tag () {
-  local curr_version="$1"
-  shift
+# Sets VERSION_TAG and ACTION_DELETE,
+# maybe REMOTE_NAME_ARG, and/or TAG_COMMIT_ARG,
+# and sets REPLAY_ARGS.
 
-  # Sets VERSION_TAG and ACTION_DELETE,
-  # and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT_ARG.
-  resolve_version_bump "${curr_version}" "$@"
-}
-
-# ***
-
-resolve_version_bump () {
+must_resolve_user_args () {
   local curr_version="$1"
   shift
 
@@ -1915,7 +1908,7 @@ git_pop_wipped_wip_commit_maybe () {
 
 git_bump_tag_vers_push () {
   # Passed args ($@) from CLI will be passed to and parsed by
-  # must_resolve_new_version_tag.
+  #   must_resolve_user_args
 
   # Remind user if they're dry-running.
   ${DRY_RUN} && echo "# TEST AHOY! (DRY_RUN=true)" || true
@@ -1943,7 +1936,7 @@ git_bump_tag_vers_push () {
   # If bump args specified (from CLI), fails on args error.
   # - Sets VERSION_TAG and ACTION_DELETE,
   #   and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT.
-  must_resolve_new_version_tag "${curr_version}" "$@"
+  must_resolve_user_args "${curr_version}" "$@"
 
   # ***
 
@@ -2082,7 +2075,7 @@ resolve_curr_version () {
       # We fetched tags from the remote and found a more recent
       # latest tag, so reapply the bump options to the actual
       # latest version.
-      must_resolve_new_version_tag "${curr_version}" "$@" \
+      must_resolve_user_args "${curr_version}" "$@" \
         || return 1
     fi
   fi
