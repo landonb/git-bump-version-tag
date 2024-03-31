@@ -987,6 +987,8 @@ verify_new_version_semver_compliant () {
 
 GIT_BUMP_INBIHIT_NO_TTY_WARNING=${GIT_BUMP_INBIHIT_NO_TTY_WARNING:-false}
 
+GITBUMP_USING_PIPED_INPUT=false
+
 ask_yesnoskip_maybe () {
   local the_ask="$1"
   local default_choice="$2"
@@ -1012,6 +1014,13 @@ ask_yesnoskip_maybe () {
     read -t 0.01 input_line
 
     if [ -z "${input_line}" ]; then
+      if ${GITBUMP_USING_PIPED_INPUT}; then
+        >&2 echo "ERROR: End of input. Please pipe more answers"
+        >&2 echo "- Auto-declining: ${the_ask}? [y/n/s] N"
+
+        return 1
+      fi
+
       if ! ${GIT_BUMP_INBIHIT_NO_TTY_WARNING}; then
         # Only print it once.
         GIT_BUMP_INBIHIT_NO_TTY_WARNING=true
@@ -1023,6 +1032,8 @@ ask_yesnoskip_maybe () {
 
       THE_CHOICE="y"
     else
+      GITBUMP_USING_PIPED_INPUT=true
+
       THE_CHOICE=$( \
         echo "${input_line}" \
         | SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}"
