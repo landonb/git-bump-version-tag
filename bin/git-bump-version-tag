@@ -1502,7 +1502,7 @@ git_smallest_version_tag () {
 # ***
 
 check_prev_version_lt_later_version () {
-  local prev_version="$1"
+  local version_tag="$1"
   local later_version="$2"
   local tag_commit="$3"
 
@@ -1510,14 +1510,14 @@ check_prev_version_lt_later_version () {
     return 0
   fi
 
-  if [ "${prev_version}" = "${later_version}" ]; then
-    >&2 echo "ERROR: Version “${later_version}” already exists" \
+  if [ "${version_tag}" = "${later_version}" ]; then
+    >&2 echo "ERROR: Version “${version_tag}” already exists" \
       "(since $(git_sha_shorten "${tag_commit}"))"
 
     return 1
   fi
 
-  if is_version_lt_version "${prev_version}" "${later_version}"; then
+  if is_version_lt_version "${version_tag}" "${later_version}"; then
     return 0
   fi
 
@@ -1525,7 +1525,7 @@ check_prev_version_lt_later_version () {
   later_commit="$(git_tag_commit_object "${later_version}")"
 
   >&2 echo "ERROR: Cannot apply version to older commit larger than later version"
-  >&2 echo "- Apply version: “${prev_version}”"
+  >&2 echo "- Apply version: “${version_tag}”"
   >&2 echo "  - Dest commit: “${tag_commit}”"
   >&2 echo "- Conlicts with: “${later_version}” (Smallest version after commit)"
   >&2 echo "  - From commit: “${later_commit}”"
