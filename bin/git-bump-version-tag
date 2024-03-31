@@ -564,46 +564,48 @@ must_resolve_user_args () {
 
     if [ ${skip_opts} -gt 0 ]; then
       if ! ${end_of_options} && [ "${cur_arg}" = '--' ]; then
-        skip_opts=1
-
+        # EOP can immediately follow <VERSION> but that's it.
         end_of_options=true
-      elif [ ${skip_opts} -eq 1 ]; then
-        if is_known_upstream "${cur_arg}"; then
-          skip_opts=2
+      else
+        end_of_options=true
+        if [ ${skip_opts} -eq 1 ]; then
+          if is_known_upstream "${cur_arg}"; then
+            skip_opts=2
 
-          REMOTE_NAME_ARG="${cur_arg}"
-        elif is_known_commit_sha "${cur_arg}"; then
+            REMOTE_NAME_ARG="${cur_arg}"
+          elif is_known_commit_sha "${cur_arg}"; then
+            skip_opts=3
+
+            TAG_COMMIT_ARG="${cur_arg}"
+          else
+            >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
+            local remote_name
+            if remote_name="$(extract_remote_name_from_upstream "${cur_arg}")"; then
+              >&2 echo "- Hint: You might need to \`git remote add "${remote_name}" <URL>\`"
+            fi
+
+            exit_1
+          fi
+        elif [ ${skip_opts} -eq 2 ]; then
           skip_opts=3
 
-          TAG_COMMIT_ARG="${cur_arg}"
-        else
-          >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
-          local remote_name
-          if remote_name="$(extract_remote_name_from_upstream "${cur_arg}")"; then
-            >&2 echo "- Hint: You might need to \`git remote add "${remote_name}" <URL>\`"
+          if is_known_commit_sha "${cur_arg}"; then
+            TAG_COMMIT_ARG="${cur_arg}"
+          else
+            >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
+
+            exit_1
           fi
-
-          exit_1
-        fi
-      elif [ ${skip_opts} -eq 2 ]; then
-        skip_opts=3
-
-        if is_known_commit_sha "${cur_arg}"; then
-          TAG_COMMIT_ARG="${cur_arg}"
         else
-          >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
+          # Case: [ ${skip_opts} -ge 3 ]
+          >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
+          >&2 echo "- Or maybe you specified more than one"
+          >&2 echo "   <VERSIONTAG>, <UPSTREAM>, or <COMMIT>"
 
           exit_1
         fi
-      else
-        # Case: [ ${skip_opts} -ge 3 ]
-        >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
-        >&2 echo "- Or maybe you specified more than one"
-        >&2 echo "   <VERSIONTAG>, <UPSTREAM>, or <COMMIT>"
-
-        exit_1
       fi
-    elif ! ${end_of_options} && [ "${cur_arg}" = '--' ]; then
+    elif [ "${cur_arg}" = '--' ]; then
       skip_opts=1
 
       end_of_options=true
