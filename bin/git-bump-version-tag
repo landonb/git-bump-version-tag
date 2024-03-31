@@ -2078,9 +2078,14 @@ resolve_remote_head_sha () {
   local remote_head_sha=""
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    remote_head_sha="$(
+    if ! remote_head_sha="$(
       git_remote_branch_object_name "${remote_name}" "${remote_branch}"
-    )"
+    )"; then
+      >&2 echo "ERROR: Specified remote/branch not a recognized object:" \
+        "“${remote_name}/${remote_branch}”"
+
+      return 1
+    fi
   fi
 
   printf "%s" "${remote_head_sha}"
