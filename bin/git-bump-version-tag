@@ -2260,6 +2260,8 @@ resolve_tag_commit () {
   printf "%s" "${tag_commit}"
 }
 
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 manage_tags () {
   local curr_version="$1"
   local tag_commit="$2"
@@ -2547,7 +2549,7 @@ prepare_push () {
   fi
 }
 
-# ***
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 # Normalize the version otherwise a tool such as poetry-dynamic-versioning
 # might impress upon the build a version slightly different than what you
@@ -2770,7 +2772,7 @@ normalize_version_with_style () {
   ! ${discontented}
 }
 
-# ***
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 highlight_fail () {
   printf "$(fg_pink)$@$(attr_reset)"
