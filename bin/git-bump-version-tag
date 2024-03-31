@@ -483,7 +483,7 @@ resolve_version_bump () {
   local bumps_count=0
 
   add_prefix () {
-    vprefix="v"
+    vprefix="${GITNUBS_PREFIX:v}"
   }
 
   del_prefix () {
@@ -960,7 +960,9 @@ insist_next_version_gt_curr_version () {
 verify_new_version_semver_compliant () {
   local version_tag="$1"
 
-  local vless_version="$(echo "${version_tag}" | sed 's/^v//')"
+  local vless_version="$( \
+    echo "${version_tag}" | sed "s/^${GITNUBS_PREFIX:v}//"
+  )"
 
   local semver
   semver="$(
@@ -1205,7 +1207,9 @@ git_tag_local_add () {
 
   insist_git_user_configured
 
-  echo_or_eval git tag -a "${version_tag}" -m "'Version: ${version_tag#v}'" "${tag_commit}"
+  echo_or_eval git tag -a "${version_tag}" \
+    -m "'Version: ${version_tag#${GITNUBS_PREFIX:v}}'" \
+    "${tag_commit}"
 
   echo "✓ Created local tag"
 }
@@ -1469,7 +1473,8 @@ git_smallest_version_tag () {
   # in those other lines of work, --contains will find those tags).
 
   local smallest_patch="$( \
-    git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*" \
+    git tag -l --contains "${since_commit}" \
+      ${GITNUBS_VERSION_TAG_PATTERNS} \
       | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
       | sort -V \
       | head -n1
@@ -1477,7 +1482,9 @@ git_smallest_version_tag () {
 
   # This is *ridonkulous*.
   local smallest_including_alpha="$( \
-    git tag -l --contains "${since_commit}" "${smallest_patch}*" "v${smallest_patch}*" \
+    git tag -l --contains "${since_commit}" \
+      "${smallest_patch}*" \
+      "${GITNUBS_PREFIX:-v}${smallest_patch}*" \
       | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
       | grep -E -v "^${smallest_patch}$" \
       | perl -ne "print if s/${GITNUBS_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
@@ -2560,16 +2567,24 @@ normalize_version_with_style () {
   local normal_style="$2"
   local semver_approved="$3"
 
+  local DUNAMAI_PREFIX="v"
+
+  # Strip user prefix (default empty, but could be anything, e.g.,
+  # tig project uses 'tig-' prefix.
   local prefixed_version="${orig_version}"
-  if [ "${orig_version}" = "${orig_version#v}" ]; then
-    prefixed_version="v${orig_version}"
+  if [ "${orig_version}" = "${orig_version#${GITNUBS_PREFIX:v}}" ]; then
+    # Dunamai-from requires specifically a "v" prefix.
+    prefixed_version="${DUNAMAI_PREFIX}${orig_version}"
   fi
 
   # ***
 
   local dunamai_check_approved=true
 
-  if ! dunamai check --style "${normal_style}" "${prefixed_version#v}" 2> /dev/null; then
+  # Dunamai-check requires there not be a "v" or any prefix.
+  if ! dunamai check --style "${normal_style}" \
+    "${prefixed_version#${DUNAMAI_PREFIX}}" 2> /dev/null\
+  ; then
     dunamai_check_approved=false
 
     CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_fail "✗ dunamai-check rejects ‘${orig_version}’")"
