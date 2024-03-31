@@ -1902,7 +1902,9 @@ git_bump_tag_vers_push () {
   local REMOTE_NAME=""
   local TAG_COMMIT=""
   # If version specified, fails if not greater than current version.
-  # If bump args specified, fails on args error.
+  # If bump args specified (from CLI), fails on args error.
+  # - Sets VERSION_TAG and ACTION_DELETE,
+  #   and maybe REMOTE_NAME, and/or TAG_COMMIT.
   must_resolve_new_version_tag "${curr_version}" "$@"
 
   # ***
@@ -2293,7 +2295,11 @@ push_or_delete () {
   local remote_head_sha="$5"
 
   # SCOPE: Vars. from caller scope:
-  #  CURR_VERSION, JUNIOR_VERSION
+  #  CURR_VERSION= — Originally git_largest_version_tag on first call, then set
+  #   to git_largest_version_tag of tag_commit specifically (via prepare_push)
+  #  JUNIOR_VERSION= — "" on first call to push_or_delete, then value 
+  #    insist_tag_commit_unversioned_or_same_version_or_opposing_types
+  #    sets (via prepare_push)
 
   local SKIP_PUSH_BRANCH=false
 
