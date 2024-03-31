@@ -1085,7 +1085,7 @@ git_bump_confirm_normalize () {
   # - And there's no reason we need local on it,
   #   either, other than being communicative about
   #   scope.
-  ask_yesnoskip_maybe "${msg}" "Y"
+  ask_yesnoskip_maybe "${msg}" "N"
 
   [ $? -eq 0 ] || THE_CHOICE=""
 
