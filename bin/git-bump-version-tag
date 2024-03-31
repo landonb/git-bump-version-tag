@@ -358,7 +358,9 @@ print_git_remote_default_branch_name () {
     # so we try to avoid it. Above, we checked if remote only has one branch.
     # Here we know there are multiple branches.
     # - One last resort to avoid network call: Check environ "config" value.
-    branch_names="$(git branch -a --list "${remote_name}/${BUMP_REMOTE_BRANCH_NAME}")"
+    branch_names="$( \
+      git branch -a --list "${remote_name}/${BUMP_REMOTE_BRANCH_NAME}"
+    )"
     if [ -n "${branch_names}" ]; then
       remote_branch="$(echo "${branch_names}" | sed 's#^.*/##')"
     else
