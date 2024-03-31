@@ -2330,7 +2330,7 @@ push_or_delete () {
   local SKIP_PUSH_BRANCH=false
 
   if ! ${ACTION_DELETE}; then
-    # Sets SKIP_PUSH_BRANCH and CURR_VERSION, JUNIOR_VERSION.
+    # Sets CURR_VERSION, JUNIOR_VERSION, and SKIP_PUSH_BRANCH.
     prepare_push \
       "${tag_commit}" \
       "${remote_name}" \
