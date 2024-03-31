@@ -308,7 +308,9 @@ insist_cmd () {
 print_git_remote_default_branch_name () {
   local remote_name="$1"
 
-  local branch_names num_branches remote_branch
+  local branch_names
+  local num_branches
+  local remote_branch
 
   # If remote only has one branch, use it.
   branch_names="$(git branch -a --list "${remote_name}/*")"
