@@ -1912,6 +1912,9 @@ git_bump_tag_vers_push () {
   remote_head_sha="$(resolve_remote_head_sha "${remote_name}" "${remote_branch}")" \
     || exit_1
 
+  insist_remote_head_is_ancestor_if_set "${remote_name}" "${remote_branch}" \
+    || exit_1
+
   local tag_commit
   # Uses local(s): TAG_COMMIT.
   tag_commit="$(
@@ -2069,6 +2072,23 @@ resolve_remote_branch () {
   fi
 
   printf "%s" "${remote_branch}"
+}
+
+insist_remote_head_is_ancestor_if_set () {
+  local remote_name="$1"
+  local remote_branch="$2"
+
+  if [ -z "${remote_name}" ] || [ -z "${remote_branch}" ]; then
+
+    return 0
+  fi
+
+  if ! git merge-base --is-ancestor "${remote_name}/${remote_branch}" "HEAD"; then
+    >&2 echo "ERROR: Specified remote/branch not reachable from HEAD:" \
+      "“${remote_name}/${remote_branch}”"
+
+    return 1
+  fi
 }
 
 resolve_remote_head_sha () {
