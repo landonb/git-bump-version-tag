@@ -298,7 +298,7 @@ insist_cmd () {
 
   command -v "${cmd_name}" > /dev/null && return || true
 
-  >&2 echo "ERROR: Missing system command ‘${cmd_name}’."
+  >&2 echo "ERROR: Missing system command ‘${cmd_name}’"
   if [ -n "${install_hint}" ]; then
     >&2 echo "${install_hint}"
   fi
@@ -704,11 +704,11 @@ resolve_version_bump () {
   if [ -n "${VERSION_TAG}" ]; then
     # Means 'same' and/or 'delete' specified.
     if [ ${bumps_count} -gt 0 ]; then
-      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and pick 'same' (s) or delete (d)."
+      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and pick 'same' (s) or delete (d)"
 
       exit_1
     elif ${ACTION_SAME} && [ -n "${VERSION_ARG}" ]; then
-      >&2 echo "ERROR: Cannot indicate 'same' (s), and specify <VERSIONTAG>."
+      >&2 echo "ERROR: Cannot indicate 'same' (s), and specify <VERSIONTAG>"
 
       exit_1
     fi
@@ -717,7 +717,7 @@ resolve_version_bump () {
   if [ -n "${VERSION_ARG}" ]; then
     # Means <VERSIONTAG> specified.
     if [ ${bumps_count} -gt 0 ]; then
-      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and specify <VERSIONTAG>."
+      >&2 echo "ERROR: Cannot indicate bump (M|m|p|a), and specify <VERSIONTAG>"
 
       exit_1
     fi
@@ -788,7 +788,7 @@ resolve_version_bump () {
 
       if [ ${bumps_count} -eq 0 ]; then
         # Should be impossible path, because bump_least above if ${bumps_count} -eq 0.
-        >&2 echo "ERROR: Please specify a bump part (M|m|p|a|l) or choose same (s)."
+        >&2 echo "ERROR: Please specify a bump part (M|m|p|a|l) or choose same (s)"
 
         exit_1
       elif ${warn_too_many}; then
@@ -1514,7 +1514,7 @@ check_prev_version_lt_later_version () {
     return 0
   fi
 
-  >&2 echo "ERROR: Cannot apply version to older commit larger than later version."
+  >&2 echo "ERROR: Cannot apply version to older commit larger than later version"
   >&2 echo "- Apply version: “${prev_version}”"
   >&2 echo "- Target commit: “${tag_commit}”"
   >&2 echo "- Conlicts with: “${later_version}” (Smallest version after commit)"
@@ -1599,7 +1599,7 @@ check_prev_version_gt_earlier_version () {
     return 0
   fi
 
-  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version."
+  >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version"
   >&2 echo "- Apply version: “${prev_version}”"
   >&2 echo "- Target commit: “${tag_commit}”"
   >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
