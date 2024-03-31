@@ -903,14 +903,11 @@ verify_new_version_semver_compliant () {
   )"
 
   if [ -z "${semver}" ]; then
-    >&2 echo "ERROR: The new version is not SemVer compliant: ${vless_version}"
-    # dunamai normalized the version value, and dunamai is never wrong
-    # (so if you see this message, it's prob in GITSMART_RE_SEMVERSPARTS).
-    # - WRONG: Possible when user specifies the new version directly.
-    # 
-    #   >&2 echo "- Unexpected: You should never see this message!"
+    CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_fail "✗ SemVer regex renouces ‘${vless_version}’")"
 
     return 1
+  else
+    CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_pass "✓ SemVer regex approves ‘${vless_version}’")"
   fi
 }
 
@@ -2285,48 +2282,115 @@ normalize_version () {
     normal_style="pep440"
   fi
 
-  local normal_vers
-  normal_vers="$(normalize_version_with_style "${VERSION_TAG}" "${normal_style}")" \
-    || return 1
+  # This script verifies the version using 3 mechanisms:
+  # - Regex from SemVer itself.
+  # - `dunamai check` (which seems to agree with the SemVer regex).
+  # - `dunamai from` (which uses restricted SemVer subset and likes
+  #                   to normalize otherwise valid versions).
+  # We'll check all three, and print output unless all 3 agree.
+  local CHECK_OUTPUT=""
 
-  # Unnecessary double-check (before adding dunamai and PEP440 support, this
-  # script was the SemVer style enforcer; but now dunamai is in charge, so
-  # this check should never fail, and is being included mostly out of
-  # curiosity, but also as an excuse not to delete the callee).
+  # Start with the SemVer regex.
+  local semver_approved=true
   if [ "${normal_style}" = "semver" ] \
     && (! ${ACTION_DELETE} || ${ACTION_PUSH}) \
   ; then
     verify_new_version_semver_compliant "${VERSION_TAG}" \
-      || return 1
+      || semver_approved=false
   fi
 
-  if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
-    local THE_CHOICE
+  local normal_vers
+  if ! normal_vers="$( \
+    normalize_version_with_style "${VERSION_TAG}" "${normal_style}" "${semver_approved}"
+  )"; then
+    # Call again to set CHECK_OUTPUT.
+    normalize_version_with_style "${VERSION_TAG}" "${normal_style}" "${semver_approved}" > /dev/null 2>&1
 
-    if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
-      [ -n "${THE_CHOICE}" ] || return 1
+    >&2 echo "BWARE: The version did not pass checks (as ‘${normal_style}’):"
+    echo -e "${CHECK_OUTPUT}" | sed '/^$/d' | >&2 sed 's/^/  /'
 
-      VERSION_TAG="${normal_vers}"
+    if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
+      local THE_CHOICE
+
+      if [ -n "${normal_vers}" ]; then
+        if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
+          [ -n "${THE_CHOICE}" ] || return 1
+
+          VERSION_TAG="${normal_vers}"
+        fi
+      fi
     fi
   fi
 
   printf "%s" "${VERSION_TAG}"
 }
 
+# NOTED: `dunamai from` limits to a SemVer subset, e.g.,
+#
+#   $ dunamai check --style semver 6.1.1-123-a.1 && echo YES
+#   YES
+#
+#   $ git tag v6.1.1-123-a.1
+#
+#   $ dunamai from git --style semver
+#   The pattern did not match any tags
+#   ...
+#
+# - It's likely that dunamai-check works same as SemVer regex,
+#   or at least it seems so anecdotally.
+#
+# NOTED: On the other hand, `dunamai from` can be helpful for
+#        malformed versions, e.g.,
+#
+#   $ dunamai check --style semver 1.0.0-alpha.001
+#   Version '1.0.0-alpha.001' does not conform to the Semantic Versioning style
+#
+#   $ git tag v1.0.0-alpha.001
+#
+#   $ dunamai from git --style semver
+#   1.0.0-alpha.1
+#
+# NOTED: `dunamai from` truncates the metadata build, e.g.,
+#
+#   1.0.0-alpha+001                 → 1.0.0-alpha
+#   1.0.0-beta+exp.sha.5114f85      → 1.0.0-beta
+#   1.0.0+20130313144700            → 1.0.0
+#   1.0.0+21AF26D3----117B344092BD  → 1.0.0
+#
+# REMEM: dunamai-from requires v-prefix.
+#
+# - BWARE: But (strangely) dunamai-check complains if v-prefixed.
+#
+#   - README says: "the 'v' prefix on the tag is required,
+#                   unless you specify a custom tag pattern."
+
 normalize_version_with_style () {
   local orig_version="$1"
   local normal_style="$2"
+  local semver_approved="$3"
 
   local prefixed_version="${orig_version}"
   if [ "${orig_version}" = "${orig_version#v}" ]; then
     prefixed_version="v${orig_version}"
   fi
 
-  local temp_dir="$(mktemp -d -- "/tmp/$(basename -- "$0")-XXXXXXX")"
-  [ ! -d "${temp_dir}" ] \
-    && >&2 echo "ERROR: \`mktemp\` failed" \
-    && return 1 \
-    || true
+  # ***
+
+  local dunamai_check_approved=true
+
+  if ! dunamai check --style "${normal_style}" "${prefixed_version#v}" 2> /dev/null; then
+    dunamai_check_approved=false
+
+    CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_fail "✗ dunamai-check rejects ‘${orig_version}’")"
+  else
+    CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_pass "✓ dunamai-check affirms ‘${orig_version}’")"
+  fi
+
+  # ***
+
+  local temp_dir
+  temp_dir="$(mktemp -d -- "/tmp/$(basename -- "$0")-XXXXXXX")" \
+    || ( >&2 echo "ERROR: \`mktemp\` failed" && exit_1 )
 
   cd "${temp_dir}"
 
@@ -2344,14 +2408,55 @@ normalize_version_with_style () {
   #  dunamai from git --style semver
   #  dunamai from git --style pep440
 
-  local warning
-  warning="$(dunamai from git --style "${normal_style}" 2>&1 > /dev/null)"
-  if [ -n "${warning}" ]; then
-    >&2 echo "ERROR: dunamai cannot extract ‘${prefixed_version}’ as ‘${normal_style}’:"
-    >&2 echo "$(echo "${warning}" | sed 's/^/  /')"
-  fi
+  local discontented=false
 
-  dunamai from git --style "${normal_style}" 2> /dev/null
+  local warning
+  warning="$(dunamai from git --style "${normal_style}" 2>&1 > /dev/null)" \
+    || true
+
+  if [ -z "${warning}" ]; then
+    local dunamai_vers
+    dunamai_vers="$(dunamai from git --style "${normal_style}")"
+
+    if [ "${orig_version}" != "${dunamai_vers}" ]; then
+      discontented=true
+
+      if ${dunamai_check_approved} \
+        && echo "${orig_version}" | sed 's/+.*$//' | grep -q "^${dunamai_vers}\$" \
+      ; then
+        # Dunamai removes +build.metadata
+        CHECK_OUTPUT="${CHECK_OUTPUT}\n$( \
+          highlight_pass "✓ dunamai-from rms +bld ‘${orig_version}’ to ‘${dunamai_vers}’"
+        )"
+
+        # Don't ask user to truncate build metadata.
+        printf "%s" "${orig_version}"
+      else
+        # Dunamai normalizes, e.g., 2.0.1-alpha1 → 2.0.1-alpha.1
+        CHECK_OUTPUT="${CHECK_OUTPUT}\n$( \
+          highlight_mid "? dunamai-from converts ‘${orig_version}’ to ‘${dunamai_vers}’"
+        )"
+
+        printf "%s" "${dunamai_vers}"
+      fi
+    else
+      printf "%s" "${dunamai_vers}"
+    fi
+  else
+    discontented=true
+
+    CHECK_OUTPUT="${CHECK_OUTPUT}\n$(highlight_fail "✗ dunamai-from dislikes ‘${orig_version}’")"
+
+    if ! ${semver_approved} \
+      || ${BMP_DUNAMAI_WINS:-false} \
+      || [ "${normal_style}" != "semver" ] \
+    ; then
+      >&2 echo "ERROR: dunamai cannot extract ‘${orig_version}’ as ‘${normal_style}’:"
+      >&2 echo "$(echo "${warning}" | sed 's/^/  /')"
+    fi
+
+    printf "%s" "${orig_version}"
+  fi
 
   cd - > /dev/null
 
@@ -2361,6 +2466,38 @@ normalize_version_with_style () {
   #   return 1
 
   command rm -rf -- "${temp_dir}"
+
+  ! ${discontented}
+}
+
+# ***
+
+highlight_fail () {
+  printf "$(fg_pink)$@$(attr_reset)"
+}
+
+highlight_mid () {
+  printf "$(fg_lightorange)$@$(attr_reset)"
+}
+
+highlight_pass () {
+  printf "$(fg_lightcyan)$@$(attr_reset)"
+}
+
+fg_lightcyan () {
+  printf "\033[96m"
+}
+
+fg_lightorange () {
+  printf "\033[38;2;255;175;95m"
+}
+
+fg_pink () {
+  printf "\033[38;2;255;135;175m"
+}
+
+attr_reset () {
+  printf "\033[0m"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
