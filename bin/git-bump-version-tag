@@ -69,7 +69,7 @@ VERSION_DISTANCE_SYMBOL="${VERSION_DISTANCE_SYMBOL:-~}"
 # ***
 
 USAGE="\
-USAGE: ${PROG_NAME} [ACTIONS...] [OPTIONS...] [<VERSIONTAG>] [--] [<REMOTE>] [<COMMIT>]
+USAGE: ${PROG_NAME} [ACTIONS...] [OPTIONS...] [<VERSIONTAG>] [--] [<UPSTREAM>] [<COMMIT>]
 
 ACTIONS:
 
@@ -133,7 +133,7 @@ DETAILS
   Options can be specified individually or as a classic arg clump
   - E.g., \`git bump minor alpha\` is the same as \`git bump ma\`
   - Though beware if a clump option matches a known remote name, then it's
-    assumed to be the <REMOTE> argument instead (in which case you cannot
+    assumed to be the <UPSTREAM> argument instead (in which case you cannot
     use the clump format)
 
 - OTHER ACTIONS:
@@ -184,14 +184,16 @@ ARGUMENTS:
               bump specifiers will bump from 0, so they work, too)
             - Useful for specifying a uniquely-named prerelease version
 
-  <REMOTE>  Specify which remote to use
-            - If not specified, will default to the remote specified
-              by the local upstream branch
-            - If local branch does not have an upstream (you can set
-              one via \`git branch -u <remote/branch>\`), will use
-              remote from \`git remote -v\` if only one is configured
+  <UPSTREAM>
+            Specify the remote or remote/branch to use
+            - When unset, uses the current branch's upstream configuration
+              - If local branch has no upstream, uses remote from
+                \`git remote -v\` if only one remote is configured
+              - To set an upstream, use \`git branch -u <remote/branch>\`
+            - When only the remote is specified, branch name assumed to
+              be same as local branch
             - Specify \"-\" to skip remote tag push altogether
-            - ALERT: You must use \`--\` before remote name if it
+            - Usage: You must use \`--\` before the remote name if it
               could be interpreted as an OPTIONS sequence, or if the
               remote name is also a valid version
 
@@ -570,7 +572,7 @@ resolve_version_bump () {
 
         end_of_options=true
       elif [ ${skip_opts} -eq 1 ]; then
-        if is_known_remote "${cur_arg}"; then
+        if is_known_upstream "${cur_arg}"; then
           skip_opts=2
 
           REMOTE_NAME="${cur_arg}"
@@ -579,7 +581,11 @@ resolve_version_bump () {
 
           TAG_COMMIT="${cur_arg}"
         else
-          >&2 echo "ERROR: Expected <REMOTE> or <COMMIT>, not: “${cur_arg}”"
+          >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
+          local remote_name
+          if remote_name="$(extract_remote_name_from_upstream "${cur_arg}")"; then
+            >&2 echo "- Hint: You might need to \`git remote add "${remote_name}" <URL>\`"
+          fi
 
           exit_1
         fi
@@ -597,7 +603,7 @@ resolve_version_bump () {
         # Case: [ ${skip_opts} -ge 3 ]
         >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
         >&2 echo "- Or maybe you specified more than one"
-        >&2 echo "   <VERSIONTAG>, <REMOTE>, or <COMMIT>"
+        >&2 echo "   <VERSIONTAG>, <UPSTREAM>, or <COMMIT>"
 
         exit_1
       fi
@@ -609,7 +615,7 @@ resolve_version_bump () {
       skip_opts=1
 
       VERSION_ARG="${cur_arg}"
-    elif is_known_remote "${cur_arg}"; then
+    elif is_known_upstream "${cur_arg}"; then
       skip_opts=2
 
       REMOTE_NAME="${cur_arg}"
@@ -811,21 +817,54 @@ like_a_version () {
   echo "${word}" | grep -q -E "${GITNUBS_RE_VERSPARTS}"
 }
 
-is_known_remote () {
-  local word="$1"
+# Check if <UPSTREAM> arg (REMOTE_NAME)
+is_known_upstream () {
+  local upstream="$1"
 
   # "-" means skip remote tag push.
-  [ "${word}" = "${BUMP_SKIP_REMOTE}" ] && return 0 || true
+  if [ "${upstream}" = "${BUMP_SKIP_REMOTE}" ]; then
 
-  starts_with_alphanum "${word}" || return 1
+    return 0
+  fi
 
-  git remote get-url "${word}" > /dev/null 2>&1
+  local remote_name
+  remote_name="$(extract_remote_name_from_upstream "${upstream}")" \
+    || return 1
+
+  git remote get-url "${remote_name}" > /dev/null 2>&1
+}
+
+extract_remote_name_from_upstream () {
+  local upstream="$1"
+
+  validate_branch_name "${upstream}" \
+    || return 1
+
+  local remote_name
+  remote_name="$(git_upstream_parse_remote_name "${upstream}")"
+
+  remote_name="${remote_name:-${upstream}}"
+
+  printf "%s" "${remote_name}"
+}
+
+# REFER: man git-check-ref-format
+validate_branch_name () {
+  local branch_name="$1"
+
+  # Count /'s
+  if [ $(printf "%s" "${branch_name}" | tr -cd '/' | wc -c) -gt 1 ]; then
+
+    return 1
+  fi
+
+  git check-ref-format --branch "${branch_name}" >/dev/null 2>&1
 }
 
 is_known_commit_sha () {
   local word="$1"
 
-  starts_with_alphanum "${word}" || return 1
+  contains_only_alphanums "${word}" || return 1
 
   [ "${word}" = "HEAD" ] && return 0 || true
 
@@ -834,13 +873,7 @@ is_known_commit_sha () {
   [[ "$(git rev-parse "${word}")" = "${word}"* ]]
 }
 
-# - A hostname may not start with a hyphen:
-#     <name>  ::= <let>[*[<let-or-digit-or-hyphen>]<let-or-digit>]
-#   https://www.rfc-editor.org/rfc/rfc952
-#   - A hostname may start with an alpha or a digit:
-#     https://www.rfc-editor.org/rfc/rfc1123#section-2
-# - Same with SHA, starts with alphanum. No biblio needed.
-starts_with_alphanum () {
+contains_only_alphanums () {
   local word="$1"
 
   echo "${word}" | grep -q -E -e "^[a-zA-Z0-9]+$"
@@ -1869,11 +1902,13 @@ git_bump_tag_vers_push () {
     || exit_1
 
   local remote_branch
-  remote_branch="$(resolve_remote_branch "${remote_name}")" \
+  local DEFAULT_BRANCH=""
+  remote_branch="$(resolve_remote_branch "${remote_name}" "${REMOTE_NAME}")" \
     || exit_1
 
   local remote_head_sha
-  remote_head_sha="$(resolve_remote_head_sha "${remote_name}" "${remote_branch}")"
+  remote_head_sha="$(resolve_remote_head_sha "${remote_name}" "${remote_branch}")" \
+    || exit_1
 
   local tag_commit
   # Uses local(s): TAG_COMMIT.
@@ -1890,15 +1925,25 @@ git_bump_tag_vers_push () {
 }
 
 resolve_remote_name () {
-  local remote_name="$1"
+  local remote_name_arg="$1"
   local version_tag="$2"
+
+  local remote_name="${remote_name_arg}"
 
   # Unless skipping remote push, warn if no remote; maybe fetch;
   # and recalculate next version if new version tag was fetched.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    # Default to the remote tracking branch remote.
-    [ -n "${remote_name}" ] \
-      || remote_name="$(git_upstream_parse_remote_name 2> /dev/null)"
+    if [ -n "${remote_name}" ]; then
+      local parsed_name
+      parsed_name="$(git_upstream_parse_remote_name "${remote_name_arg}")"
+
+      remote_name="${parsed_name:-${remote_name}}"
+    else
+      # Default to the remote tracking branch remote.
+      remote_name="$(git_upstream_parse_remote_name 2> /dev/null)" \
+        || true
+    fi
+
     # If no such tracking branch, use sole remote if only one set.
     if [ -z "${remote_name}" ]; then
       remote_name="$(resolve_remote_name_from_remotes "${version_tag}")" \
@@ -1987,12 +2032,33 @@ resolve_curr_version () {
 
 resolve_remote_branch () {
   local remote_name="$1"
+  local remote_name_arg="$2"
 
   local remote_branch=""
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
-      || return 1
+    if [ -n "${remote_name_arg}" ]; then
+      remote_branch="$(git_upstream_parse_branch_name "${remote_name_arg}")"
+    fi
+
+    # We could defer to the upstream config next...
+    #
+    #   if [ -z "${remote_branch}" ]; then
+    #     remote_branch="$(git_upstream_parse_branch_name 2> /dev/null)" \
+    #       || true
+    #   fi
+    #
+    # But it seems better to assume the user expects that each version
+    # tag corresponds with a commit in the default branch.
+    # - If the user disagrees, they can specify branch via <UPSTREAM>.
+
+    # In most circumstances, user wants to version the default branch HEAD.
+    if [ -z "${remote_branch}" ]; then
+      remote_branch="$(print_git_remote_default_branch_name "${remote_name}")" \
+        || return 1
+
+      DEFAULT_BRANCH="${remote_branch}"
+    fi
 
     ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}" || true
   fi
