@@ -87,7 +87,7 @@ ACTIONS:
     d|-d|delete
     P|-P|push
     c|-c|current
-    --check
+    x|-x|--check|--verify
     version|--version
 
 OPTIONS:
@@ -651,7 +651,7 @@ must_resolve_user_args () {
 
           exit_0
           ;;
-        --check)
+        x | -x | --check | --verify)
           # Check if <bump> "compatible" with current commit
           # version tag(s), if any.
           ACTION_CHECK=true
@@ -677,6 +677,7 @@ must_resolve_user_args () {
               d) ACTION_DELETE=true;
                  VERSION_TAG="${curr_version}" ;;
               P) ACTION_PUSH=true ;;
+              x) ACTION_CHECK=true ;;
               M) bump_major ;;
               m) bump_minor ;;
               p) bump_patch ;;
