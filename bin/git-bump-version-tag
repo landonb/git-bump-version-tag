@@ -339,7 +339,7 @@ print_git_remote_default_branch_name () {
   num_branches="$(echo "${branch_names}" | wc -l)"
 
   if [ ${num_branches} -eq 0 ]; then
-    >&2 echo "ERROR: No local branches found for remote '${remote_name}'." \
+    >&2 echo "ERROR: No local branches found for remote “${remote_name}”" \
       "Perhaps you need to fetch?"
 
     return 1
@@ -363,7 +363,7 @@ print_git_remote_default_branch_name () {
 
   # Shouldn't happen, we assume.
   if [ -z "${remote_branch}" ]; then
-    >&2 echo "FATAL: Where's remote branch?"
+    >&2 echo "ERROR: No default branch found for remote “${remote_name}”"
 
     return 1
   fi
@@ -2285,6 +2285,8 @@ prepare_push () {
         # Local ahead of remote.
         if ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit}; then
           >&2 echo "ERROR: Remote branch HEAD and target commit not in same branch"
+          >&2 echo "- Check the remote (${remote_name}/${remote_branch})" \
+            "and the tag commit (${tag_commit})"
 
           exit_1
         fi
