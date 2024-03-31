@@ -1024,7 +1024,8 @@ ask_yesnoskip_maybe () {
       THE_CHOICE="y"
     else
       THE_CHOICE=$( \
-        SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}" "${input_line}"
+        echo "${input_line}" \
+        | SKIP_PROMPT_NL=true ask_yesnoskip "${the_ask}" "${default_choice}"
       ) \
         || retcode=$?
 
