@@ -1859,7 +1859,8 @@ git_bump_tag_vers_push () {
     check_bump "${tag_commit}"
   else
     # Create or delete local and/or remote tags.
-    manage_tags "${tag_commit}" "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+    manage_tags "${curr_version}" "${tag_commit}" \
+      "${remote_name}" "${remote_branch}" "${remote_head_sha}"
   fi
 }
 
@@ -2011,10 +2012,11 @@ resolve_tag_commit () {
 }
 
 manage_tags () {
-  local tag_commit="$1"
-  local remote_name="$2"
-  local remote_branch="$3"
-  local remote_head_sha="$4"
+  local curr_version="$1"
+  local tag_commit="$2"
+  local remote_name="$3"
+  local remote_branch="$4"
+  local remote_head_sha="$5"
 
   local default_tag_commit="${tag_commit}"
 
