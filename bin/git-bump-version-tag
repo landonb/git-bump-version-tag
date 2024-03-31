@@ -1912,7 +1912,10 @@ git_bump_tag_vers_push () {
 
   local tag_commit
   # Uses local(s): TAG_COMMIT.
-  tag_commit="$(resolve_tag_commit "${remote_name}" "${remote_branch}" "${remote_head_sha}")" \
+  tag_commit="$(
+    resolve_tag_commit "${remote_name}" "${remote_branch}" \
+      "${remote_head_sha}" "${REMOTE_NAME}"
+  )" \
     || exit_1
 
   if ${ACTION_CHECK}; then
@@ -2085,6 +2088,7 @@ resolve_tag_commit () {
   local remote_name="$1"
   local remote_branch="$2"
   local remote_head_sha="$3"
+  local remote_name_arg="$4"
 
   # Suss tag_commit from local_head_sha and remote_head_sha.
 
@@ -2103,21 +2107,38 @@ resolve_tag_commit () {
     fi
   fi
 
+  # Exclude PRIVATE/PROTECTED commits (if git-put-wise is installed).
   if [ "${tag_commit}" = "HEAD" ]; then
-    if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-      # Ensure branch names match (don't let user accidentally tag and
-      # push wrong branch to remote).
-      local local_branch="$(git_branch_name)"
+    tag_commit="$(print_scoped_head)"
+  fi
 
-      if [ "${local_branch}" != "${remote_branch}" ]; then
-        >&2 echo "ERROR: Expected the same local and remote branch names"
-        >&2 echo "- Not “${local_branch}” (local) and “${remote_branch}” (remote)"
+  # If there's only one remote branch and it's a different name
+  # than the local branch; and if the local upstream config does
+  # not use the same branch name; and if the user did not specify
+  # the branch name explicitly; then alert the user.
+  # - This might be unnecessary, but the author assumes this will
+  #   rarely happen.
+  # - User can avoid this message by specifying the branch name
+  #   explicitly via <UPSTREAM>
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+    local local_branch="$(git_branch_name)"
 
-        return 1
+    if [ "${remote_branch}" != "${local_branch}" ]; then
+      local remote_branch_arg=""
+      if [ -n "${remote_name_arg}" ]; then
+        remote_branch_arg="$(git_upstream_parse_branch_name "${remote_name_arg}")"
+      fi
+
+      if [ -z "${remote_branch_arg}" ]; then
+        local upstream_branch="$(git_upstream_parse_branch_name 2> /dev/null)" \
+          || true
+
+        if [ "${remote_branch}" != "${upstream_branch}" ]; then
+          >&2 echo "ALERT: Pushing tag to differently-named remote branch"
+          >&2 echo "- Pushing from “${local_branch}” to “${remote_branch}”"
+        fi
       fi
     fi
-
-    tag_commit="$(print_scoped_head)"
   fi
 
   printf "%s" "${tag_commit}"
