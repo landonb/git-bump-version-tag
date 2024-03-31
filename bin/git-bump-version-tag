@@ -1754,45 +1754,48 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
   local remote_name="$3"
   local remote_branch="$4"
 
+  local existing_tags
+  existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
+
+  if [ -z "${existing_tags}" ]; then
+
+    return 0
+  fi
+
   local refname="$(git_sha_shorten "${tag_commit}")"
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     refname="${remote_name}/${remote_branch}"
   fi
 
-  local existing_tags
-  existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
+  if ! version_tags_contain "${existing_tags}" "${version_tag}"; then
+    # Remember that `wc -l` reports 1 for empty echo's newline.
+    local num_versions="$(echo "${existing_tags}" | wc -l)"
 
-  if [ -n "${existing_tags}" ]; then
-    if ! version_tags_contain "${existing_tags}" "${version_tag}"; then
-      # Remember that `wc -l` reports 1 for empty echo's newline.
-      local num_versions="$(echo "${existing_tags}" | wc -l)"
-
-      if [ -n "${existing_tags}" ] && [ ${num_versions} -gt 1 ]; then
-        >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
-        >&2 echo "- This commit already has more than one version tag:"
-        echo "${existing_tags}" | >&2 sed 's/^/  /'
-        if ${ACTION_SAME}; then
-          >&2 echo "GAFFE: Unexpected code path for 'same' action"
-        fi
-
-        exit_1
+    if [ -n "${existing_tags}" ] && [ ${num_versions} -gt 1 ]; then
+      >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
+      >&2 echo "- This commit already has more than one version tag:"
+      echo "${existing_tags}" | >&2 sed 's/^/  /'
+      if ${ACTION_SAME}; then
+        >&2 echo "GAFFE: Unexpected code path for 'same' action"
       fi
 
-      # There's only one tag on the commit.
-      local commit_version="${existing_tags}"
+      exit_1
+    fi
 
-      insist_existing_version_and_new_version_are_opposing_types \
-        "${commit_version}" "${version_tag}" "${refname}"
-    else
-      # Means ${version_tag} already tagged on the (local) commit.
-      # - This is a little hacky, or at least feels that way, but
-      #   update the CURR_VERSION complementary variable, so the
-      #   `git bump <vers>` on either current version tag.
-      if [ "${CURR_VERSION}" != "${version_tag}" ]; then
-        # CURR_VERSION is set to largest current commit tag,
-        # so JUNIOR_VERSION is a smaller version.
-        JUNIOR_VERSION="${version_tag}"
-      fi
+    # There's only one tag on the commit.
+    local commit_version="${existing_tags}"
+
+    insist_existing_version_and_new_version_are_opposing_types \
+      "${commit_version}" "${version_tag}" "${refname}"
+  else
+    # Means ${version_tag} already tagged on the (local) commit.
+    # - This is a little hacky, or at least feels that way, but
+    #   update the CURR_VERSION complementary variable, so the
+    #   `git bump <vers>` on either current version tag.
+    if [ "${CURR_VERSION}" != "${version_tag}" ]; then
+      # CURR_VERSION is set to largest current commit tag,
+      # so JUNIOR_VERSION is a smaller version.
+      JUNIOR_VERSION="${version_tag}"
     fi
   fi
 }
