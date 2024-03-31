@@ -2168,9 +2168,12 @@ insist_remote_head_is_ancestor_if_set () {
     return 0
   fi
 
-  if ! git merge-base --is-ancestor "${remote_name}/${remote_branch}" "HEAD"; then
+  local scoped_head
+  scoped_head="$(print_scoped_head)"
+
+  if ! git merge-base --is-ancestor "${remote_name}/${remote_branch}" "${scoped_head}"; then
     >&2 echo "ERROR: Specified remote/branch not reachable from HEAD:" \
-      "“${remote_name}/${remote_branch}”"
+      "“${remote_name}/${remote_branch}” !< $(git_sha_shorten "${scoped_head}")"
 
     return 1
   fi
