@@ -338,7 +338,9 @@ print_git_remote_default_branch_name () {
   branch_names="$(git branch -a --list "${remote_name}/*")"
   num_branches="$(echo "${branch_names}" | wc -l)"
 
-  if [ ${num_branches} -eq 0 ]; then
+  # Misleading check. If branch_names empty, num_branches actually -eq 1
+  # because wc -l counts empty line.
+  if [ -z "${branch_names}" ] || [ ${num_branches} -eq 0 ]; then
     >&2 echo "ERROR: No local branches found for remote “${remote_name}”" \
       "Perhaps you need to fetch?"
 
@@ -1645,9 +1647,10 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
 
   if [ -n "${existing_tags}" ]; then
     if ! version_tags_contain "${existing_tags}" "${version_tag}"; then
+      # Remember that `wc -l` reports 1 for empty echo's newline.
       local num_versions="$(echo "${existing_tags}" | wc -l)"
 
-      if [ ${num_versions} -gt 1 ]; then
+      if [ -n "${existing_tags}" ] && [ ${num_versions} -gt 1 ]; then
         >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
         >&2 echo "- This commit already has more than one version tag:"
         echo "${existing_tags}" | >&2 sed 's/^/  /'
@@ -1916,7 +1919,15 @@ resolve_remote_name_from_remotes () {
     local num_remotes
     num_remotes=$(echo "${push_remotes}" | wc -l)
 
-    if [ ${num_remotes} -eq 1 ]; then
+    # `wc -l` reports 1 for an empty line, so check nonempty string.
+    if [ -z "${push_remotes}" ]; then
+      # Should be unreachable path, because outer if `git remote -v` check.
+      # - Would mean the grep filtered everything.
+      >&2 echo "ERROR: Nothing but push remotes exist?"
+      >&2 echo "- Hint: Review \`git remote -v | grep -e ' (push)$'\` and fix this warning"
+
+      remote_name="${BUMP_SKIP_REMOTE}"
+    elif [ ${num_remotes} -eq 1 ]; then
       # Just one remote; use it.
       remote_name="$(echo "${push_remotes}" | sed 's/^\([^[:space:]]\+\).*/\1/')"
     else
