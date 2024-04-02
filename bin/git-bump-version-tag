@@ -1316,7 +1316,27 @@ git_tag_local_delete () {
   git_bump_confirm_delete "${version_tag}" "" \
     || return 0
 
-  echo_or_eval "git tag -d \"${version_tag}\""
+  local tag_id="$( \
+    git rev-parse --verify --end-of-options refs/tags/${version_tag}
+  )"
+
+  # OUTPUTs, e.g.,
+  #   Deleted tag '0.0.1' (was e79ce9c)
+  # where the ID is the tag ID, not the commit ID.
+  local cmd_output
+  cmd_output="$( \
+    echo_or_eval "git tag -d \"${version_tag}\""
+  )"
+
+  if [ $(echo "${cmd_output}" | wc -l) -eq 1 ] \
+    && echo "${cmd_output}" | grep -q -e "^Deleted tag " \
+  ; then
+    echo "✓ Deleted local tag '${version_tag}'" \
+      "(was $(git_sha_shorten "${tag_id}"))"
+  else
+    # Unexpected response.
+    echo "${cmd_output}"
+  fi
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -1344,7 +1364,24 @@ git_tag_remote_delete () {
   #           git push --delete ${remote_name} ${tag_name}
   #       But that syntax might also delete a branch of the same name.
   #       So be :obtuse, and be specific about what's being deleted.
-  echo_or_eval "git push \"${remote_name}\" \":refs/tags/${version_tag}\""
+  # OUTPUTs, e.g.,
+  #   To github.com:landonb/git-bump-version-tag.git
+  #    - [deleted]         1.3.9
+  local cmd_output
+  cmd_output="$( \
+    echo_or_eval "git push \"${remote_name}\" \":refs/tags/${version_tag}\" 2>&1"
+  )"
+
+  if [ $(echo "${cmd_output}" | wc -l) -eq 2 ] \
+    && echo "${cmd_output}" | head -n 1 | grep -q -e "^To " \
+    && echo "${cmd_output}" | tail -n 1 | grep -q -e "^ - \[deleted\] " \
+  ; then
+    echo "${cmd_output}" | head -n 1
+    echo "✓ Deleted remote tag '${version_tag}'"
+  else
+    # Unexpected response.
+    echo "${cmd_output}"
+  fi
 }
 
 git_tag_remote_push () {
