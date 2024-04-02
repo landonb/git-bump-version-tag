@@ -2389,6 +2389,10 @@ resolve_remote_name_from_remotes () {
       >&2 echo "        git branch -u <remote/branch>"
       >&2 echo "    - Or if this is your first push:"
       >&2 echo "        git push -u <remote> <ref>:refs/heads/<branch>"
+      >&2 echo "  - Or you could specify the <UPSTREAM> arg, e.g.:"
+      >&2 echo "        $( \
+        echo "${PROG_NAME} ${REPLAY_ARGS} ${VERSION_ARG} -- <UPSTREAM> ${TAG_COMMIT_ARG}" \
+        | sed 's/ \+/ /')"
       >&2 echo "Remedy the situation and try again to apply ${version_tag}"
 
       return 1
