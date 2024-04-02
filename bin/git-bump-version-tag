@@ -2507,8 +2507,14 @@ manage_tags () {
     "${remote_head_sha}"
 
   if ${ACTION_DELETE} && ${ACTION_PUSH}; then
+    # This is the special `-dP` use case, which allows user to re-apply
+    # a version, i.e., delete the *old* tag from remote and local, and
+    # then re-apply same version at new tag_commit.
+
     ACTION_DELETE=false
-    # ACTION_PUSH=false
+    # ACTION_PUSH is implied unless ACTION_DELETE, so setting it false
+    # after ACTION_DELET=false would work just the same.
+    #  ACTION_PUSH=false
 
     tag_commit="${default_tag_commit}"
 
