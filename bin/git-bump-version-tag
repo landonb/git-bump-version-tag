@@ -2591,16 +2591,17 @@ push_or_delete () {
 
   # SCOPE: Vars. from caller scope:
   #  CURR_VERSION= — Originally git_largest_version_tag on first call, then set
-  #   to git_largest_version_tag of tag_commit specifically (via prepare_push)
+  #   to git_largest_version_tag of tag_commit specifically (via
+  #   validate_and_normalize_version)
   #  JUNIOR_VERSION= — "" on first call to push_or_delete, then value 
   #    insist_tag_commit_unversioned_or_same_version_or_opposing_types
-  #    sets (via prepare_push)
+  #    sets (via validate_and_normalize_version)
 
   local SKIP_PUSH_BRANCH=false
 
   if ! ${ACTION_DELETE}; then
     # Sets CURR_VERSION, JUNIOR_VERSION, and SKIP_PUSH_BRANCH.
-    prepare_push \
+    validate_and_normalize_version \
       "${tag_commit}" \
       "${remote_name}" \
       "${remote_branch}" \
@@ -2636,7 +2637,7 @@ push_or_delete () {
 
 # ***
 
-prepare_push () {
+validate_and_normalize_version () {
   local tag_commit="$1"
   local remote_name="$2"
   local remote_branch="$3"
