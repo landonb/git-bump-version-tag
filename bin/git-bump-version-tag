@@ -698,7 +698,7 @@ must_resolve_user_args () {
           ;;
         D | -D | dist | --dist | distance | --distance)
           # The currect project version.
-          VERSION_DISTANCE_ONLY="true" \
+          ACTION_DISTANCE="true" \
           BUMP_DIST_BEHIND_MARK="" \
             print_current_project_version_with_head_distance "${curr_version}"
 
@@ -991,7 +991,7 @@ print_current_project_version_with_head_distance () {
     curr_version_commit="$(git_tag_commit_object "${curr_version}")"
   fi
 
-  if ${VERSION_DISTANCE_ONLY:-false}; then
+  if ${ACTION_DISTANCE:-false}; then
     best_version=""
   fi
 
