@@ -2282,12 +2282,13 @@ resolve_remote_name_from_remotes () {
     else
       # This is the case: [ ${num_remotes} -gt 1 ]
       >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
-      >&2 echo "- Please set a remote tracking branch and try again"
-      >&2 echo "  - E.g., if you've already pushed to the remote:"
-      >&2 echo "      git branch -u <remote/branch>"
-      >&2 echo "  - Or if this is your first push:"
-      >&2 echo "      git push -u <remote> <ref>:refs/heads/<branch>"
-      >&2 echo "- Failed to consider applying ${version_tag}"
+      >&2 echo "- Please indicate which upstream to use:"
+      >&2 echo "  - You could set a remote tracking branch"
+      >&2 echo "    - E.g., if you've already pushed to the remote:"
+      >&2 echo "        git branch -u <remote/branch>"
+      >&2 echo "    - Or if this is your first push:"
+      >&2 echo "        git push -u <remote> <ref>:refs/heads/<branch>"
+      >&2 echo "Remedy the situation and try again to apply ${version_tag}"
 
       return 1
     fi
