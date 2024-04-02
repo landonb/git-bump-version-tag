@@ -1154,8 +1154,10 @@ git_bump_confirm_next () {
     do_what_now="bump curr “${curr_version}” to"
   fi
 
+  local where_at=" (at ${TAG_COMMIT_NAME})"
+
   # E.g., "Okay to bump “1.3.2” → “1.3.2-alpha.1”"
-  local msg="Okay to ${do_what_now} “${version_tag}”"
+  local msg="Okay to ${do_what_now} “${version_tag}”${where_at}"
 
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
