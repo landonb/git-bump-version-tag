@@ -592,7 +592,9 @@ must_resolve_user_args () {
   # USYNC: version_tag_environs
   VERSION_TAG=""
   ACTION_CHECK=false
+  ACTION_CURRENT=false
   ACTION_DELETE=false
+  ACTION_DISTANCE=false
   ACTION_PUSH=false
   ACTION_SAME=false
   BUMP_IS_PRERELEASE=false
@@ -698,6 +700,7 @@ must_resolve_user_args () {
           ;;
         c | -c | cur | --cur | current | --current)
           # The currect project version, with distance.
+          ACTION_CURRENT=true
           if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
             # Wait for next call to parse, when curr_version is set.
             add_replay "${_replay_arg:-c}"
@@ -708,12 +711,12 @@ must_resolve_user_args () {
           fi
           ;;
         D | -D | dist | --dist | distance | --distance)
-          # The currect project version.
+          # The currect project version distance only.
+          ACTION_DISTANCE=true
           if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
             # Wait for next call to parse, when curr_version is set.
             add_replay "${_replay_arg:-D}"
           else
-            ACTION_DISTANCE="true" \
             BUMP_DIST_BEHIND_MARK="" \
               print_current_project_version_with_head_distance "${curr_version}"
 
@@ -2013,7 +2016,7 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
     # Remember that `wc -l` reports 1 for empty echo's newline,
     # but we already know that [ -n "${existing_tags}" ] is true.
     if [ ${num_versions} -gt 1 ]; then
-      if ! ${ACTION_DELETE}; then
+      if ! (${ACTION_DELETE} || ${ACTION_CURRENT} || ${ACTION_DISTANCE}); then
         if [ -n "${version_arg}" ]; then
           >&2 echo "ERROR: Cannot add “${version_arg}” to commit “${TAG_COMMIT_NAME}”"
         else
@@ -2026,7 +2029,8 @@ insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
         return 1
       fi
 
-      # On delete, pick largest.
+      # This is a non-tagging action (delete|--current|--distance),
+      # so use largest existing version, regardless of bloatedness.
       curr_version="$(git_largest_version_tag --points-at "${tag_commit}")"
     else
       # There's only one tag on the commit.
@@ -2244,7 +2248,9 @@ git_bump_tag_vers_push () {
   # USYNC: version_tag_environs
   local VERSION_TAG=""
   local ACTION_CHECK=false
+  local ACTION_CURRENT=false
   local ACTION_DELETE=false
+  local ACTION_DISTANCE=false
   local ACTION_PUSH=false
   local ACTION_SAME=false
   local BUMP_IS_PRERELEASE=false
@@ -2393,9 +2399,14 @@ resolve_remote_name_from_remotes () {
       >&2 echo "        $( \
         echo "${PROG_NAME} ${REPLAY_ARGS} ${VERSION_ARG} -- <UPSTREAM> ${TAG_COMMIT_ARG}" \
         | sed 's/ \+/ /')"
-      >&2 echo "Remedy the situation and try again to apply ${version_tag}"
 
-      return 1
+      if ! (${ACTION_CURRENT} || ${ACTION_DISTANCE}); then
+        >&2 echo "Remedy the situation and try again to apply ${version_tag}"
+
+        return 1
+      fi
+
+      remote_name="${BUMP_SKIP_REMOTE}"
     fi
   else
     # No remotes. Skip remote dealings.
