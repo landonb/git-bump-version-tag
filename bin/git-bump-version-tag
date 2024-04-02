@@ -447,6 +447,11 @@ periodically_fetch () {
 parse_version_parts () {
   local curr_version="$1"
 
+  if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
+    
+    return 0
+  fi
+
   # See also: GITNUBS_RE_SEMVERSPARTS. Here we use looser regex so we
   # can read any style version and increment any part of it. Then later
   # we'll use the dunamai library to normalize the version according to
@@ -589,13 +594,12 @@ must_resolve_user_args () {
   ACTION_CHECK=false
   ACTION_DELETE=false
   ACTION_PUSH=false
+  ACTION_SAME=false
   BUMP_IS_PRERELEASE=false
   UPSTREAM_ARG=""
   TAG_COMMIT_ARG=""
+  VERSION_ARG=""
   REPLAY_ARGS=""
-
-  local ACTION_SAME=false
-  local VERSION_ARG=""
 
   while [ $# -gt 0 ]; do
     local cur_arg="$1"
@@ -693,18 +697,28 @@ must_resolve_user_args () {
           exit_0
           ;;
         c | -c | cur | --cur | current | --current)
-          # The currect project version.
-          print_current_project_version_with_head_distance "${curr_version}"
+          # The currect project version, with distance.
+          if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
+            # Wait for next call to parse, when curr_version is set.
+            add_replay "${_replay_arg:-c}"
+          else
+            print_current_project_version_with_head_distance "${curr_version}"
 
-          exit_0
+            exit_0
+          fi
           ;;
         D | -D | dist | --dist | distance | --distance)
           # The currect project version.
-          ACTION_DISTANCE="true" \
-          BUMP_DIST_BEHIND_MARK="" \
-            print_current_project_version_with_head_distance "${curr_version}"
+          if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
+            # Wait for next call to parse, when curr_version is set.
+            add_replay "${_replay_arg:-D}"
+          else
+            ACTION_DISTANCE="true" \
+            BUMP_DIST_BEHIND_MARK="" \
+              print_current_project_version_with_head_distance "${curr_version}"
 
-          exit_0
+            exit_0
+          fi
           ;;
         x | -x | --check | --verify)
           # Check if <bump> "compatible" with current commit
@@ -793,7 +807,13 @@ must_resolve_user_args () {
     VERSION_TAG="${VERSION_ARG}"
   fi
 
-  if [ -z "${VERSION_TAG}" ]; then
+  # Set VERSION_TAG if not set, unless ACTION_DELETE or ACTION_SAME,
+  # in which case leave it empty.
+  if [ -z "${VERSION_TAG}" ] \
+    && [ "${VERSION_TAG}" != "${PREFLIGHT_ARGS}" ] \
+    && ! ${ACTION_SAME} \
+    && ! ${ACTION_DELETE} \
+  ; then
     if [ ${bumps_count} -eq 0 ]; then
       # No action (user called naked `git bump-version-tag`). Usage says
       # defaults 'least'.
@@ -876,7 +896,9 @@ must_resolve_user_args () {
     VERSION_TAG="${version_tag}"
   fi
 
-  ${DRY_RUN} && echo "VERSION_TAG=${VERSION_TAG}" || true
+  if [ "${VERSION_TAG}" != "${PREFLIGHT_ARGS}" ]; then
+    ${DRY_RUN} && echo "VERSION_TAG=${VERSION_TAG}" || true
+  fi
 }
 
 like_a_version () {
@@ -1003,35 +1025,6 @@ print_current_project_version_with_head_distance () {
     echo "${curr_version} at ${head_id}"
   else
     print_no_version_tags_exist
-  fi
-}
-
-# ***
-
-insist_next_version_gt_curr_version () {
-  local next_version="$1"
-  local curr_version="$2"
-  local tag_commit="$3"
-
-  local is_newer_version=true
-
-  # Check next_version > curr_version (using fcn named as such because
-  # that's how its error messages describe any issue, but we ignore those).
-  check_version_tag_gt_earlier_version \
-    "${next_version}" "${curr_version}" "${_tag_commit:+}" "${_alert_fiver:+}" \
-      || is_newer_version=false
-
-  if ! ${is_newer_version}; then
-    if ! ${ACTION_DELETE}; then
-      >&2 echo "ERROR: Desired version not greater than current version:"
-      >&2 echo "  “${next_version}” !> “${curr_version}”"
-
-      exit_1
-    fi
-
-    >&2 echo
-    >&2 echo "ALERT: You are deleting an older version than the current version"
-    >&2 echo
   fi
 }
 
@@ -1273,6 +1266,8 @@ git_tag_local_add () {
   local junior_version="$4"
 
   if ! "${ACTION_PUSH}"; then
+    # Note that CURR_VERSION is really COMMIT_VERSION when TAG_COMMIT_ARG
+    # is specified, i.e., it's not the actual largest tag version present.
     if [ "${version_tag}" = "${curr_version}" ] \
       || [ "${version_tag}" = "${junior_version}" ] \
     ; then
@@ -1406,7 +1401,7 @@ git_tag_remote_push () {
   local tag_commit="$2"
   local remote_name="$3"
   local remote_branch="$4"
-  local skip_push_branch="$5"
+  local remote_head_sha="$5"
 
   # We've already verified the remote name is defined locally:
   #
@@ -1488,6 +1483,11 @@ git_tag_remote_push () {
   # else, [ ${verify_result} -eq ${GNUBS_TAG_ABSENT} ], so push it.
 
   # ***
+
+  local skip_push_branch=false
+  if git merge-base --is-ancestor "${tag_commit}" "${remote_head_sha}"; then
+    skip_push_branch=true
+  fi
 
   git_bump_confirm_push "${version_tag}" "${remote_name}" \
     || return 0
@@ -1953,55 +1953,87 @@ print_smaller_vers_for_same_patch () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 insist_tag_commit_unversioned_or_same_version_or_opposing_types () {
-  local version_tag="$1"
-  local tag_commit="$2"
+  local tag_commit="$1"
+  local version_arg="$2"
   local remote_name="$3"
   local remote_branch="$4"
 
+  CURR_VERSION=""
+  COMMIT_VERSION=""
+  JUNIOR_VERSION=""
+
+  # Caller checks ahead to ensure no version tags appear after this
+  # commit, unless scoped head and a PRIVATE/PROTECTED commit is
+  # tagged (oops).
+  # - Set CURR_VERSION to largest version on tag_commit; or, if none,
+  #   to the largest version tag on any commit (on any branch or not).
+  #   - Note this means if tag_commit is versioned, CURR_VERSION won't
+  #     reflect largest version tag that exists, but we'll warn user on
+  #     validate_and_normalize_version if larger version exists.
   local existing_tags
   existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
 
   if [ -z "${existing_tags}" ]; then
+    CURR_VERSION="$(git_largest_version_tag)"
+    # Leave COMMIT_VERSION empty.
 
     return 0
   fi
 
-  local refname="$(git_sha_shorten "${tag_commit}")"
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    refname="${remote_name}/${remote_branch}"
-  fi
+  local num_versions="$(echo "${existing_tags}" | wc -l)"
 
-  if ! version_tags_contain "${existing_tags}" "${version_tag}"; then
-    # Remember that `wc -l` reports 1 for empty echo's newline.
-    local num_versions="$(echo "${existing_tags}" | wc -l)"
+  local curr_version=""
 
-    if [ -n "${existing_tags}" ] && [ ${num_versions} -gt 1 ]; then
-      >&2 echo "ERROR: Cannot add “${version_tag}” to commit “${refname}”"
-      >&2 echo "- This commit already has more than one version tag:"
-      echo "${existing_tags}" | >&2 sed 's/^/  /'
-      if ${ACTION_SAME}; then
-        >&2 echo "GAFFE: Unexpected code path for 'same' action"
+  if ! version_tags_contain "${existing_tags}" "${version_arg}"; then
+    # Remember that `wc -l` reports 1 for empty echo's newline,
+    # but we already know that [ -n "${existing_tags}" ] is true.
+    if [ ${num_versions} -gt 1 ]; then
+      if ! ${ACTION_DELETE}; then
+        if [ -n "${version_arg}" ]; then
+          >&2 echo "ERROR: Cannot add “${version_arg}” to commit “${TAG_COMMIT_NAME}”"
+        else
+          >&2 echo "ERROR: The commit “${TAG_COMMIT_NAME}” is too bloated already"
+        fi
+
+        >&2 echo "- This commit already has more than one version tag:"
+        echo "${existing_tags}" | >&2 sed 's/^/  /'
+
+        return 1
       fi
 
-      exit_1
+      # On delete, pick largest.
+      curr_version="$(git_largest_version_tag --points-at "${tag_commit}")"
+    else
+      # There's only one tag on the commit.
+      curr_version="${existing_tags}"
+
+      if ! ${ACTION_DELETE} && [ -n "${version_arg}" ]; then
+        if ! insist_commit_version_and_new_version_are_not_same_type \
+          "${curr_version}" "${version_arg}" \
+        ; then
+
+          return 1
+        fi
+      # else, we'll call insist_commit_version_and_new_version_are_not_same_type later.
+      fi
     fi
-
-    # There's only one tag on the commit.
-    local commit_version="${existing_tags}"
-
-    insist_existing_version_and_new_version_are_opposing_types \
-      "${commit_version}" "${version_tag}" "${refname}"
   else
-    # Means ${version_tag} already tagged on the (local) commit.
+    # This means version_arg is set, and is tagged on tag_commit.
+    curr_version="$(git_largest_version_tag --points-at "${tag_commit}")"
     # - This is a little hacky, or at least feels that way, but
-    #   update the CURR_VERSION complementary variable, so the
-    #   `git bump <vers>` on either current version tag.
-    if [ "${CURR_VERSION}" != "${version_tag}" ]; then
-      # CURR_VERSION is set to largest current commit tag,
-      # so JUNIOR_VERSION is a smaller version.
-      JUNIOR_VERSION="${version_tag}"
+    #   update the CURR_VERSION complementary variable, so that
+    #   `git bump <vers>` works on either current version tag.
+    if [ "${version_arg}" != "${curr_version}" ]; then
+      # CURR_VERSION is set to largest current commit tag.
+      # JUNIOR_VERSION is set to a smaller version.
+      JUNIOR_VERSION="${version_arg}"
     fi
   fi
+
+  CURR_VERSION="${curr_version}"
+
+  # COMMIT_VERSION refers to existing version on tag_commit.
+  COMMIT_VERSION="${CURR_VERSION}"
 }
 
 version_tags_contain () {
@@ -2028,60 +2060,73 @@ version_tags_contain () {
 
 # Use case(s) for allowing two versions on the same commit:
 # - One pre-release, and one normal.
-insist_existing_version_and_new_version_are_opposing_types () {
+insist_commit_version_and_new_version_are_not_same_type () {
   local commit_version="$1"
   local version_tag="$2"
-  local refname="$3"
+
+  if [ -z "${version_tag}" ]; then
+
+    return 0
+  fi
 
   if [ "${commit_version}" = "${version_tag}" ]; then
 
     return 0
   fi
 
+  local is_adding_normal=false
+  local is_adding_prerelease=false
   local invalid_version=true
   local error_hint=""
 
-  if is_version_gt_version "${version_tag}" "${commit_version}"; then
-    # Newer tag greater than existing tag.
+  suss_normalities () {
     if is_version_pre_release "${commit_version}"; then
       # Existing version is pre-release.
       if is_version_normal "${version_tag}"; then
         # New version is normal.
         invalid_version=false
 
-        >&2 echo "BWARE: Double-tagging commit: Adding Normal version to Pre-release"
+        is_adding_normal=true
       else
         # Both versions are pre-release.
         error_hint="- Hint: You can apply a normal version to this commit, but not pre-release"
       fi
-    else
-      # Existing version is normal.
-      if is_version_pre_release "${version_tag}"; then
-        # New version is pre-release.
-        invalid_version=false
+    elif is_version_pre_release "${version_tag}"; then
+      # New version is pre-release.
+      invalid_version=false
 
-        >&2 echo "BWARE: Double-tagging commit: Adding Pre-release version to Normal"
-      else
-        # Both versions are normal.
-        error_hint="- Hint: You can apply a pre-release version to this commit, but not normal"
-      fi
+      is_adding_prerelease=true
+    else
+      # Both versions are normal.
+      error_hint="- Hint: You can apply a pre-release version to this commit, but not normal"
     fi
+  }
+
+  if is_version_gt_version "${version_tag}" "${commit_version}"; then
+    # Newer tag greater than existing tag.
+    suss_normalities
   else
     # Newer tag less than existing tag.
-    local version_type=""
-    if is_version_pre_release "${commit_version}"; then
-      version_type="normal"
+    # - This envrion here for testing alt. behavior but defaults true.
+    if ${BUMP_ALLOW_EARLIER_ALPHA_ON_SAME_COMMIT:-true}; then
+      suss_normalities
     else
-      version_type="pre-release"
+      error_hint="- Hint: Use a version greater than ${commit_version}"
     fi
-    error_hint="- Hint: You can try a ${version_type} version greater than ${commit_version}"
+  fi
+
+  if ${is_adding_normal}; then
+    >&2 echo "BWARE: Double-tagging commit: Adding Normal version to Pre-release"
+  elif ${is_adding_prerelease}; then
+    >&2 echo "BWARE: Double-tagging commit: Adding Pre-release version to Normal"
   fi
 
   if ${invalid_version}; then
-    >&2 echo "ERROR: The target commit “${refname}” is already version-tagged: ${commit_version}"
+    >&2 echo "ERROR: The target commit ${TAG_COMMIT_NAME}" \
+      "is already version-tagged: ${commit_version}"
     >&2 echo "${error_hint}"
 
-    exit_1
+    return 1
   fi
 }
 
@@ -2171,32 +2216,28 @@ git_bump_tag_vers_push () {
 
   # ***
 
-  # Note that git-smart returns the latest version-looking tag.
-  # - It's not guaranteed to be SemVer compliant.
-  local curr_version="$(git_largest_version_tag)"
-
   # USYNC: version_tag_environs
   local VERSION_TAG=""
   local ACTION_CHECK=false
   local ACTION_DELETE=false
   local ACTION_PUSH=false
+  local ACTION_SAME=false
   local BUMP_IS_PRERELEASE=false
+  local UPSTREAM_ARG=""
   local TAG_COMMIT_ARG=""
+  local VERSION_ARG=""
   local REPLAY_ARGS=""
-  # If version specified, fails if not greater than current version.
-  # If bump args specified (from CLI), fails on args error.
-  # - Sets VERSION_TAG and ACTION_DELETE,
-  #   and maybe UPSTREAM_ARG, and/or TAG_COMMIT.
-  must_resolve_user_args "${curr_version}" "$@"
+  # Parse the user args, and use a placeholder version.
+  # - We'll call the parser again after we determine the version
+  #   (but we need the other args first to do so).
+  local PREFLIGHT_ARGS="-"
+  # - Side-effects: The parser sets all the environs listed above.
+  must_resolve_user_args "${_curr_version:-${PREFLIGHT_ARGS}}" "$@"
 
   # ***
 
   local remote_name
   remote_name="$(resolve_remote_name "${UPSTREAM_ARG}" "${VERSION_TAG}")" \
-    || exit_1
-
-  # Side-effect: Might git-fetch to get most recent tags.
-  curr_version="$(resolve_curr_version "${remote_name}" "${curr_version}")" \
     || exit_1
 
   local remote_branch
@@ -2211,35 +2252,70 @@ git_bump_tag_vers_push () {
   insist_remote_head_is_ancestor_if_set "${remote_name}" "${remote_branch}" \
     || exit_1
 
-  local tag_commit
-  tag_commit="$( \
-    resolve_tag_commit "${TAG_COMMIT_ARG}" \
-      "${remote_name}" "${remote_branch}" \
-      "${remote_head_sha}" "${UPSTREAM_ARG}"
-  )" \
+  # Target commit, set to CLI arg if set, else remote/branch, or (scoped) HEAD.
+  local TAG_COMMIT=""
+  # The friendly tag_commit name, for messaging.
+  local TAG_COMMIT_NAME=""
+  # The largest existing version tag; unless COMMIT_VERSION,
+  # then the largest version on TAG_COMMIT.
+  local CURR_VERSION=""
+  # If TAG_COMMIT has version tags, the largest one.
+  local COMMIT_VERSION=""
+  # If TAG_COMMIT has multiple version tags, set to VERSION_ARG
+  # if VERSION_ARG < CURR_VERSION, so git_tag_local_add can skip
+  # git-tag call.
+  local JUNIOR_VERSION=""
+  must_resolve_tag_commit_and_curr_version \
+    "${TAG_COMMIT_ARG}" "${VERSION_ARG}" \
+    "${remote_name}" "${remote_branch}" \
+    "${remote_head_sha}" "${UPSTREAM_ARG}" \
     || exit_1
 
-  if ${ACTION_CHECK}; then
-    check_bump "${tag_commit}"
+  # Now that the correct version is identified, replay the bump commands.
+  # - If this feels wonky — that we called this function and parsed user
+  #   args already — it is. It's an artifact of how the code evolved. But
+  #   the status quo is easier and less risky than refactoring the arg
+  #   parser. User shouldn't notice anything odd about their UX, at least.
+  local upstream="${remote_name}"
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] && [ -n "${remote_branch}" ]; then
+    upstream="${remote_name}/${remote_branch}"
+  fi
+  # Set VERSION_TAG per bump commands.
+  must_resolve_user_args "${CURR_VERSION}" \
+    ${REPLAY_ARGS} ${VERSION_ARG} -- "${upstream}" "${TAG_COMMIT}"
+
+  # ***
+
+  if [ -z ${VERSION_TAG} ]; then
+    print_no_version_tags_exist
+
+    exit_1
+  elif ${ACTION_CHECK}; then
+    validate_and_normalize_version \
+      "${TAG_COMMIT}" \
+      "${remote_name}" \
+      "${remote_branch}" \
+      "${_local_head_sha:-$(git_HEAD_commit_sha)}" \
+      "${remote_head_sha}" 2> /dev/null
   else
     # Create or delete local and/or remote tags.
-    manage_tags "${curr_version}" "${tag_commit}" \
+    manage_tags "${CURR_VERSION}" "${TAG_COMMIT}" \
       "${remote_name}" "${remote_branch}" "${remote_head_sha}"
   fi
 }
 
 resolve_remote_name () {
-  local remote_name_arg="$1"
+  local upstream_arg="$1"
   local version_tag="$2"
 
-  local remote_name="${remote_name_arg}"
+  local remote_name="${upstream_arg}"
 
   # Unless skipping remote push, warn if no remote; maybe fetch;
   # and recalculate next version if new version tag was fetched.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     if [ -n "${remote_name}" ]; then
       local parsed_name
-      parsed_name="$(git_upstream_parse_remote_name "${remote_name_arg}")"
+      parsed_name="$(git_upstream_parse_remote_name "${upstream_arg}")"
 
       remote_name="${parsed_name:-${remote_name}}"
     else
@@ -2298,41 +2374,6 @@ resolve_remote_name_from_remotes () {
   fi
 
   printf "%s" "${remote_name}"
-}
-
-resolve_curr_version () {
-  local remote_name="$1"
-  local curr_version="$2"
-
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    # We don't necessarily care if the remote doesn't exist — we could still
-    # tag the local branch, and then fail on/before the git-push — but this
-    # also seems like an issue the user should be made to resolve first. If
-    # they really don't care, they can re-run the command with "-" as the
-    # remote name to skip remote functionality. But really they'll probably
-    # want to fix the local repo remote, or fix their bump-version-tags arg.
-    must_remote_exists "${remote_name}" \
-      || return 1
-
-    # Fetch remote at least every hour (network call).
-    periodically_fetch "${remote_name}"
-
-    # Insist remote/branch versioned the same, or re-run new version validation.
-
-    local postfetch_curr_version="$(git_largest_version_tag)"
-
-    if [ "${postfetch_curr_version}" != "${curr_version}" ]; then
-      curr_version="${postfetch_curr_version}"
-
-      # We fetched tags from the remote and found a more recent
-      # latest tag, so reapply the bump options to the actual
-      # latest version.
-      must_resolve_user_args "${curr_version}" "$@" \
-        || return 1
-    fi
-  fi
-
-  printf "%s" "${curr_version}"
 }
 
 resolve_remote_branch () {
@@ -2397,7 +2438,15 @@ resolve_remote_head_sha () {
 
   local remote_head_sha=""
 
+  # Unless there are no remotes, user must use "-" to skip this
+  # remote check.
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+    must_remote_exists "${remote_name}" \
+      || return 1
+
+    # Fetch remote at least every hour (network call).
+    periodically_fetch "${remote_name}"
+
     if ! remote_head_sha="$(
       git_remote_branch_object_name "${remote_name}" "${remote_branch}"
     )"; then
@@ -2416,29 +2465,52 @@ resolve_tag_commit () {
   local remote_name="$2"
   local remote_branch="$3"
   local remote_head_sha="$4"
-  local remote_name_arg="$5"
 
   # Suss tag_commit from local_head_sha and remote_head_sha.
 
-  local tag_commit="${tag_commit_arg}"
+  local tag_commit=""
+  local tag_commit_name=""
 
-  if [ -z "${tag_commit}" ]; then
-    if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+  local tag_commit_ref_name=""
+
+  if [ -z "${tag_commit_arg}" ]; then
+    if ${ACTION_SAME}; then
+      local curr_version="$(git_largest_version_tag)"
+      tag_commit="$(git_tag_commit_object "${curr_version}")"
+    elif [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
       # ALERT: Defaults to tagging remote/branch HEAD.
       # - Why? Because git-bump is meant to publish a new version.
       #        But it doesn't want to push unpublished commits. So
       #        it picks the most recent published commit.
       #        - User can override by specifying "HEAD" <COMMIT>.
       tag_commit="${remote_head_sha}"
+
+      tag_commit_ref_name="${remote_name}/${remote_branch}"
     else
-      tag_commit="HEAD"
+      # If git-put-wise installed, exclude PRIVATE/PROTECTED commits;
+      # otherwise use HEAD.
+      tag_commit="$(print_scoped_head)"
     fi
+  elif [ "${tag_commit_arg}" = "HEAD" ]; then
+    tag_commit="$(print_scoped_head)"
+  else
+    tag_commit="$(git_commit_object_name "${tag_commit_arg}")"
   fi
 
-  # Exclude PRIVATE/PROTECTED commits (if git-put-wise is installed).
-  if [ "${tag_commit}" = "HEAD" ]; then
-    tag_commit="$(print_scoped_head)"
-  fi
+  tag_commit_name="$( \
+    print_head_dist_and_ref_name "${tag_commit}" ${tag_commit_ref_name}
+  )"
+
+  # Silly Bash-specific (caller uses <<<$()) return mechanism.
+  echo "${tag_commit}"
+  echo "${tag_commit_name}"
+}
+
+# Inherent, as in, the user didn't specify the remote branch via CLI arg. 
+alert_if_inherent_upstream_branch_ne_local_branch_name () {
+  local remote_name="$1"
+  local remote_branch="$2"
+  local upstream_arg="$3"
 
   # If there's only one remote branch and it's a different name
   # than the local branch; and if the local upstream config does
@@ -2453,8 +2525,8 @@ resolve_tag_commit () {
 
     if [ "${remote_branch}" != "${local_branch}" ]; then
       local remote_branch_arg=""
-      if [ -n "${remote_name_arg}" ]; then
-        remote_branch_arg="$(git_upstream_parse_branch_name "${remote_name_arg}")"
+      if [ -n "${upstream_arg}" ]; then
+        remote_branch_arg="$(git_upstream_parse_branch_name "${upstream_arg}")"
       fi
 
       if [ -z "${remote_branch_arg}" ]; then
@@ -2468,8 +2540,119 @@ resolve_tag_commit () {
       fi
     fi
   fi
+}
 
-  printf "%s" "${tag_commit}"
+must_resolve_tag_commit_and_curr_version () {
+  local tag_commit_arg="$1"
+  local version_arg="$2"
+  local remote_name="$3"
+  local remote_branch="$4"
+  local remote_head_sha="$5"
+  local upstream_arg="$6"
+
+  TAG_COMMIT=""
+  TAG_COMMIT_NAME=""
+  CURR_VERSION=""
+  JUNIOR_VERSION=""
+
+  local tag_commit=""
+  local commit_version=""
+
+  _resolve_tag_commit () {
+    local tag_commit_ref="$1"
+
+    # 2024-04-01: Bash-specific (b/c <<<$() or < <()) multiple-variable
+    # read consumer.
+    # - Sorta hacky, sort nifty...
+    IFS=$'\n' read -d '\n' tag_commit TAG_COMMIT_NAME <<<$( \
+      resolve_tag_commit "${tag_commit_ref}" \
+        "${remote_name}" "${remote_branch}" \
+        "${remote_head_sha}"
+      )
+  }
+
+  _advance_tag_commit () {
+    if [ -z "${TAG_COMMIT_ARG}" ] \
+      && [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
+    ; then
+      _resolve_tag_commit "HEAD"
+    fi
+  }
+
+  # ***
+
+  alert_if_inherent_upstream_branch_ne_local_branch_name \
+    "${remote_name}" "${remote_branch}" "${upstream_arg}"
+
+  # Get the tag_commit. It'll be TAG_COMMIT_ARG if set,
+  # remote/branch if exists, or falls back scoped HEAD.
+  _resolve_tag_commit "${TAG_COMMIT_ARG}"
+
+  # Identify the largest version tag applied after tag_commit.
+  local largest_version_from_ahead="$( \
+    git_largest_version_tag --merged HEAD --no-merged "${tag_commit}" \
+  )"
+
+  if [ -n "${largest_version_from_ahead}" ]; then
+    # In this case, a commit ahead of tag_commit is versioned.
+    # - Unless TAG_COMMIT_ARG, switch to HEAD commit instead.
+    # Note this means user will be prompted to push commits.
+    _advance_tag_commit
+  fi
+
+  # ***
+
+  # Check not more than one tag already applied to the target tag_commit,
+  # unless version_arg specified, in which case allow two tags if one tag
+  # matches version_arg. If one tag exists and version_arg specified,
+  # verify that one tag is a normal tag and that the other tag is a
+  # pre-release tag (git-bump lets user apply both alpha and normal tags
+  # to any commit, in any order).
+  # - Sets CURR_VERSION, COMMIT_VERSION, and JUNIOR_VERSION.
+  # - If checks fail, or if checks indicate that tag_commit is already
+  #   tagged
+  # BWARE: DX: You may want to temporarily remote /dev/null to help test.
+  if ! insist_tag_commit_unversioned_or_same_version_or_opposing_types \
+      "${tag_commit}" "${version_arg}" "${remote_name}" "${remote_branch}" \
+      2> /dev/null \
+    || ( [ -n "${COMMIT_VERSION}" ] \
+      && ! ${ACTION_SAME} \
+      && ( [ -z "${TAG_COMMIT_ARG}" ] \
+        || ( [ "${version_arg}" != "${CURR_VERSION}" ] \
+          && [ "${version_arg}" != "${JUNIOR_VERSION}" ] ) ) ) \
+  ; then
+    _advance_tag_commit
+  fi
+
+  # Caller doesn't expect version compare warnings on --check.
+  # - Copy stderr file descriptor to temporary descriptor.
+  exec 3>&2
+  if ${ACTION_CHECK}; then
+    exec 2>/dev/null
+  fi
+  # Once more with feeling, er, stderr (which we inhibited before because
+  # we maybe moved tag_commit forward, in which case those error messages
+  # were irrelevant).
+  if ! insist_tag_commit_unversioned_or_same_version_or_opposing_types \
+    "${tag_commit}" "${version_arg}" "${remote_name}" "${remote_branch}" \
+  ; then
+    # Restore stderr.
+    exec 2>&3
+
+    exit_1
+  fi
+  # Restore stderr.
+  exec 2>&3
+
+  # Warn-tell user if the current version is not under HEAD.
+  if [ -n "${CURR_VERSION}" ] \
+    && [ -z "$(git tag -l --merged HEAD "${CURR_VERSION}")" ] \
+  ; then
+    >&2 echo "BWARE: The current version “${CURR_VERSION}”" \
+      "is tagged outside the current branch"
+  fi
+
+  TAG_COMMIT="${tag_commit}"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -2493,12 +2676,6 @@ manage_tags () {
 
   local local_head_sha="$(git_HEAD_commit_sha)"
 
-  local CURR_VERSION="${curr_version}"
-  # The penultimate version, or second, lesser-than
-  # version on a double- (or multi-) tagged commit.
-  local JUNIOR_VERSION=""
-
-  # Sets CURR_VERSION, JUNIOR_VERSION.
   push_or_delete \
     "${tag_commit}" \
     "${remote_name}" \
@@ -2518,7 +2695,6 @@ manage_tags () {
 
     tag_commit="${default_tag_commit}"
 
-    # Sets CURR_VERSION, JUNIOR_VERSION.
     push_or_delete \
       "${tag_commit}" \
       "${remote_name}" \
@@ -2531,32 +2707,6 @@ manage_tags () {
 
   git_pop_wipped_wip_commit_maybe
   git_undo_staged_wip_commit_maybe
-}
-
-check_bump () {
-  local tag_commit="$1"
-
-  EXIT_CODE=0
-
-  local existing_tags
-  existing_tags="$(git_versions_tagged_for_commit_object "${tag_commit}")"
-
-  local existing_tag
-  while IFS= read -r existing_tag; do
-    [ -n "${existing_tag}" ] || continue
-
-    if ${BUMP_IS_PRERELEASE}; then
-      if is_version_pre_release "${existing_tag}"; then
-        EXIT_CODE=1
-
-        break
-      fi
-    elif is_version_normal "${existing_tag}"; then
-      EXIT_CODE=1
-
-      break
-    fi
-  done <<< "${existing_tags}"
 }
 
 # ***
@@ -2572,9 +2722,16 @@ print_scoped_head () {
     # "PROTECTED: ". Use case: So you can keep some stuff private to
     # your local repo without needing to maintain a separate feature
     # branch.
-    scoped_head_sha="$( \
+    local release_boundary_or_HEAD
+    release_boundary_or_HEAD="$( \
       identify_scope_ends_at "^${SCOPING_PREFIX}" "^${PRIVATE_PREFIX}" \
     )"
+
+    if [ "${release_boundary_or_HEAD}" = "HEAD" ]; then
+      scoped_head_sha="$(git_HEAD_commit_sha)"
+    else
+      scoped_head_sha="${release_boundary_or_HEAD}"
+    fi
   fi
 
   printf "%s" "${scoped_head_sha}"
@@ -2590,17 +2747,14 @@ push_or_delete () {
   local remote_head_sha="$5"
 
   # SCOPE: Vars. from caller scope:
-  #  CURR_VERSION= — Originally git_largest_version_tag on first call, then set
-  #   to git_largest_version_tag of tag_commit specifically (via
-  #   validate_and_normalize_version)
-  #  JUNIOR_VERSION= — "" on first call to push_or_delete, then value 
-  #    insist_tag_commit_unversioned_or_same_version_or_opposing_types
-  #    sets (via validate_and_normalize_version)
-
-  local SKIP_PUSH_BRANCH=false
+  #  CURR_VERSION= — Usually git_largest_version_tag, unless TAG_COMMIT
+  #   is versioned, then set to largest TAG_COMMIT version.
+  #  COMMIT_VERSION= — Set to existing version tag if found on TAG_COMMIT
+  #    (so same as CURR_VERSION in that case, otherwise empty).
+  #  JUNIOR_VERSION= — If TAG_COMMIT has 2 tags, set to the smaller
+  #    version if it's same as VERSION_ARG.
 
   if ! ${ACTION_DELETE}; then
-    # Sets CURR_VERSION, JUNIOR_VERSION, and SKIP_PUSH_BRANCH.
     validate_and_normalize_version \
       "${tag_commit}" \
       "${remote_name}" \
@@ -2625,7 +2779,7 @@ push_or_delete () {
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Delete and/or push the remote tag (and maybe the branch).
     git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
-      "${remote_name}" "${remote_branch}" "${SKIP_PUSH_BRANCH}"
+      "${remote_name}" "${remote_branch}" "${remote_head_sha}"
   fi
 
   # Delete locally last, so user doesn't abandon remote tag
@@ -2643,24 +2797,7 @@ validate_and_normalize_version () {
   local remote_branch="$3"
   local local_head_sha="$4"
   local remote_head_sha="$5"
-
-  # SCOPE: Vars. seen by caller:
-  #  CURR_VERSION=<set below>
-  #  JUNIOR_VERSION=<set fcn called below>
-  #  SKIP_PUSH_BRANCH=<set here and below>
-  SKIP_PUSH_BRANCH=false
-
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    if [ "${tag_commit}" = "${remote_head_sha}" ]; then
-      # Don't need to push this commit, which is remote branch HEAD.
-      SKIP_PUSH_BRANCH=true
-    fi
-  fi
-
-  # *** Normalize the version
-
-  VERSION_TAG="$(normalize_version "${VERSION_TAG}")" \
-    || exit_1
+  local skip_normalize="${6:-false}"
 
   # *** Verify version order integrity between commits before,
   #     commits after, commits elsewhere, and the tag_commit.
@@ -2678,14 +2815,18 @@ validate_and_normalize_version () {
   fi
 
   # Find largest tag beween [root, tag_commit) and check < new version.
-  local largest_version_from_behind="$( \
-    git_largest_version_tag --merged "${tag_commit}^"
-  )"
-  if ! check_version_tag_gt_earlier_version \
-    "${VERSION_TAG}" "${largest_version_from_behind}" "${tag_commit}" \
-  ; then
+  # - Note that `git tag -l --merged ${tag_commit}^` will fail
+  #   "fatal: malformed object name ${tag_commit}^" if HEAD^ is absent.
+  local largest_version_from_behind
+  if largest_version_from_behind="$( \
+    git_largest_version_tag --merged "${tag_commit}^" 2> /dev/null
+  )"; then
+    if ! check_version_tag_gt_earlier_version \
+      "${VERSION_TAG}" "${largest_version_from_behind}" "${tag_commit}" \
+    ; then
 
-    exit_1
+      exit_1
+    fi
   fi
 
   # Find largest tag outside this branch and alert when >= new version.
@@ -2715,8 +2856,7 @@ validate_and_normalize_version () {
   # Verify tag_commit and remote/branch are in same line of work, unless:
   # - The operation is local-only (remote_name is "-"); or
   # - Skip-push is set, which means tag_commit same as remote_head_sha.
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] && ! ${SKIP_PUSH_BRANCH}; then
-    # We know ${tag_commit} != ${remote_head_sha} because ! ${SKIP_PUSH_BRANCH}.
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     if true \
       && ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha} \
       && ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit} \
@@ -2731,43 +2871,41 @@ validate_and_normalize_version () {
 
   # ***
 
-  # Check not more than one tag already applied to the target tag_commit;
-  # and if that commit is already tagged, verify that one tag is a normal
-  # tag and that the other tag is a pre-release tag (git-bump lets user
-  # apply both alpha and normal tags to any commit, in any order).
-  insist_tag_commit_unversioned_or_same_version_or_opposing_types \
-    "${VERSION_TAG}" "${tag_commit}" "${remote_name}" "${remote_branch}"
-
-  # ***
-
-  # Identify the largest version tag applied to tag_commit.
-  local commit_version
-  commit_version="$(git_largest_version_tag --points-at ${tag_commit})"
-
-  # Remember so git_tag_local_add skips local tag if it exists.
-  if [ -n "${commit_version}" ]; then
-    CURR_VERSION="${commit_version}"
+  # If TAG_COMMIT has version tag, verify new version applicable.
+  # - Unless VERSION_ARG specified, then we already ran this check.
+  if [ -n "${COMMIT_VERSION}" ] && [ -z "${VERSION_ARG}" ]; then
+    if [ "${COMMIT_VERSION}" != "${VERSION_TAG}" ]; then
+      insist_commit_version_and_new_version_are_not_same_type \
+        "${COMMIT_VERSION}" "${VERSION_TAG}" \
+          || exit_1
   fi
 
   # ***
 
-  # TRACK/2024-03-31: The next check is a subset of (and weaker than)
-  # the check above:
-  #   insist_tag_commit_unversioned_or_same_version_or_opposing_types
-  # But it precedes the check above, so keeping for now, as validation.
-  if ${GITNUBS_DEV:-false}; then
-    if ! insist_next_version_gt_curr_version \
-      "${VERSION_TAG}" "${CURR_VERSION}" "${tag_commit}" \
-    ; then
-      >&2 echo "GAFFE: Unexpected: These two calls disagree:"
-      >&2 echo
-      >&2 echo "  insist_tag_commit_unversioned_or_same_version_or_opposing_types \\"
-      >&2 echo "    \"${VERSION_TAG}\" \"${tag_commit}\" \"${remote_name}\" \"${remote_branch}\""
-      >&2 echo
-      >&2 echo "  insist_next_version_gt_curr_version \\"
-      >&2 echo "    \"${VERSION_TAG}"\ \"${CURR_VERSION}"\ \"${tag_commit}\""
+  if ! ${skip_normalize} \
+    && [ -n "${VERSION_ARG}" ] \
+    && ! ${ACTION_CHECK} \
+    && ! ${ACTION_DELETE} \
+  ; then
+    local normal_version
+    normal_version="$(normalize_version "${VERSION_TAG}")" \
+      || exit_1
 
-      exit_1
+    if [ "${VERSION_TAG}" != "${normal_version}" ]; then
+      VERSION_TAG="${normal_version}"
+
+      # Check again. (This fcn. used to normalize_version up top, then
+      # run checks, but seems silly to prompt to normalize if there's
+      # a version conflict anyway. And normalize only changes the alpha
+      # part, if it's whack, so unlikely checks would pass at first,
+      # then user would confirm normalize, and then checks would fail.
+      validate_and_normalize_version \
+        "${tag_commit}" \
+        "${remote_name}" \
+        "${remote_branch}" \
+        "${local_head_sha}" \
+        "${remote_head_sha}" \
+        "${_skip_normalize:-true}"
     fi
   fi
 }
@@ -2790,7 +2928,7 @@ validate_and_normalize_version () {
 # https://github.com/mtkennerly/dunamai
 
 normalize_version () {
-  local orig_version="$1"
+  local version_tag="$1"
 
   # `dunamai from git --style`: [--style {pep440,semver,pvp}]
   local normal_style="semver"
@@ -2809,37 +2947,35 @@ normalize_version () {
 
   # Start with the SemVer regex.
   local semver_approved=true
-  if [ "${normal_style}" = "semver" ] \
-    && (! ${ACTION_DELETE} || ${ACTION_PUSH}) \
-  ; then
-    verify_new_version_semver_compliant "${VERSION_TAG}" \
+  if [ "${normal_style}" = "semver" ]; then
+    verify_new_version_semver_compliant "${version_tag}" \
       || semver_approved=false
   fi
 
   local normal_vers
   if ! normal_vers="$( \
-    normalize_version_with_style "${VERSION_TAG}" "${normal_style}" "${semver_approved}"
+    normalize_version_with_style "${version_tag}" "${normal_style}" "${semver_approved}"
   )"; then
     # Call again to set CHECK_OUTPUT.
-    normalize_version_with_style "${VERSION_TAG}" "${normal_style}" "${semver_approved}" > /dev/null 2>&1
+    normalize_version_with_style "${version_tag}" "${normal_style}" "${semver_approved}" > /dev/null 2>&1
 
     >&2 echo "BWARE: The version did not pass checks (as ‘${normal_style}’):"
     echo -e "${CHECK_OUTPUT}" | sed '/^$/d' | >&2 sed 's/^/  /'
 
-    if [ "${normal_vers}" != "${VERSION_TAG}" ]; then
+    if [ "${normal_vers}" != "${version_tag}" ]; then
       local THE_CHOICE
 
       if [ -n "${normal_vers}" ]; then
-        if git_bump_confirm_normalize "${VERSION_TAG}" "${normal_vers}" "${normal_style}"; then
+        if git_bump_confirm_normalize "${version_tag}" "${normal_vers}" "${normal_style}"; then
           [ -n "${THE_CHOICE}" ] || return 1
 
-          VERSION_TAG="${normal_vers}"
+          version_tag="${normal_vers}"
         fi
       fi
     fi
   fi
 
-  printf "%s" "${VERSION_TAG}"
+  printf "%s" "${version_tag}"
 }
 
 # NOTED: `dunamai from` limits to a SemVer subset, e.g.,
