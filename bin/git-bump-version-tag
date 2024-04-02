@@ -65,6 +65,8 @@ VERSION_FULL="${PROG_NAME} >= ${VERSION} ${VERSION_DATE}"
 # SPIKE: What's the convention here? A ~tilde? A !bang?
 #  BUMP_DIST_BEHIND_MARK="${BUMP_DIST_BEHIND_MARK:- 🔻}"
 BUMP_DIST_BEHIND_MARK="${BUMP_DIST_BEHIND_MARK:-~}"
+BUMP_DIST_AHEAD_MARK="${BUMP_DIST_AHEAD_MARK:-!}"
+BUMP_DIST_SCOPED_MARK="${BUMP_DIST_SCOPED_MARK:-+}"
 
 # ***
 
@@ -963,37 +965,45 @@ print_current_project_version_with_head_distance () {
 
   local best_version=""
 
-  local curr_version_commit
-  local curr_vers_distance
-  local curr_vers_dist_suffix=""
+  local curr_version_commit=""
 
   if [ -z "${curr_version}" ]; then
-    if [ -z ${BUMP_UNVERSIONED_VERSION+x} ]; then
-      best_version="${BUMP_UNVERSIONED_VERSION:-0.0.0}"
-    else
-      best_version="${BUMP_UNVERSIONED_VERSION}"
-    fi
-    curr_version_commit="$(git_first_commit_sha)"
+    # ALTLY: Printing empty string seems best. Otherwise we could
+    # print "0.0.0", or "0.0.0~<disst>", or just "~<disst>". But
+    # none of these seem to be better than empty string.
+    # - E.g.,
+    #
+    #   if [ -z ${BUMP_UNVERSIONED_VERSION+x} ]; then
+    #     best_version="${BUMP_UNVERSIONED_VERSION:-0.0.0}"
+    #   else
+    #     best_version="${BUMP_UNVERSIONED_VERSION}"
+    #   fi
+    #   curr_version_commit="$(git_first_commit_sha)"
+    # Optional value user could have us print instead of empty string.
+    best_version="${BUMP_UNVERSIONED_VERSION}"
   else
     best_version="${curr_version}"
     curr_version_commit="$(git_tag_commit_object "${curr_version}")"
   fi
 
   if ${ACTION_DISTANCE:-false}; then
-    best_version=""
+    if [ -z "${curr_version}" ]; then
+      printf "%s" "0"
+    else
+      # Print number of commits between current version and scoped head.
+      git_distance_between_commits_minus_wips "${curr_version_commit}"
+    fi
+  elif [ -n "${curr_version}" ]; then
+    # MAYBE/2024-04-02 00:12: Add branch names, too
+    # Print more detailed description, including both distance from
+    # current version to scoped head, and from scoped head to HEAD.
+    #  local head_id="$(print_head_distance_id "${curr_version_commit}")"
+    local head_id="$(print_head_dist_and_ref_name "${curr_version_commit}")"
+
+    echo "${curr_version} at ${head_id}"
+  else
+    print_no_version_tags_exist
   fi
-
-  # Get distance from scoped commit.
-  local scoped_head
-  scoped_head="$(print_scoped_head)"
-  curr_vers_distance="$(git rev-list --count ${curr_version_commit}..${scoped_head})"
-
-  if [ ${curr_vers_distance} -ne 0 ]; then
-    # E.g., "1.1.7 🔻17", or perhaps "1.1.7~17".
-    curr_vers_dist_suffix="${BUMP_DIST_BEHIND_MARK}${curr_vers_distance}"
-  fi
-
-  echo "${best_version}${curr_vers_dist_suffix}"
 }
 
 # ***
@@ -1023,6 +1033,10 @@ insist_next_version_gt_curr_version () {
     >&2 echo "ALERT: You are deleting an older version than the current version"
     >&2 echo
   fi
+}
+
+print_no_version_tags_exist () {
+  >&2 echo "🤷 No version tags exist"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -1652,6 +1666,66 @@ check_version_tag_lt_later_version () {
   >&2 echo "  - From commit: “${other_commit}”"
 
   return 1
+}
+
+print_head_distance_id () {
+  local gitref="${1:-HEAD}"
+
+  local annotated_head=""
+  local annotated_scoped=""
+
+  local scoped_head
+  scoped_head="$(print_scoped_head)"
+
+  local scoped_distance
+  scoped_distance="$(git_distance_between_commits_minus_wips "${gitref}" "${scoped_head}")"
+
+  annotated_head="${BUMP_DIST_BEHIND_MARK:-~}${scoped_distance}"
+
+  if ! git_is_same_commit "${gitref}" "$(git_HEAD_commit_sha)"; then
+    local head_distance
+    head_distance="$(git_distance_between_commits_minus_wips "${scoped_head}" "HEAD")"
+
+    if [ "${head_distance}" != "0" ]; then
+      annotated_scoped="${BUMP_DIST_SCOPED_MARK:-+}${head_distance}"
+    elif [ "${scoped_distance}" = "0" ]; then
+      annotated_head=""
+    fi
+  elif [ "${scoped_distance}" = "0" ]; then
+    annotated_head=""
+  fi
+
+  printf "%s" "HEAD${annotated_head}${annotated_scoped}"
+}
+
+git_distance_between_commits_minus_wips () {
+  local gitref="$1"
+  local head_ref="$2"
+
+  local distance="0"
+  local reverse_dist_mark=""
+
+  if [ -z "${head_ref}" ]; then
+    head_ref="$(print_scoped_head)"
+  fi
+
+  distance="$(git_distance_between_commits "${gitref}" "${head_ref}")"
+
+  if [ ${distance} -eq 0 ]; then
+    distance="$(git_distance_between_commits "${head_ref}" "${gitref}")"
+
+    if [ ${distance} -gt 0 ]; then
+      reverse_dist_mark="${BUMP_DIST_AHEAD_MARK:-!}"
+    fi
+  fi
+
+  if git_is_same_commit "${head_ref}" "$(git_HEAD_commit_sha)"; then
+    # Delete tag path uses `print_head_dist_and_ref_name` after WIPping.
+    ${_STAGED} && let 'distance -= 1'
+    ${_WIPPED} && let 'distance -= 1'
+  fi
+
+  printf "%s" "${reverse_dist_mark}${distance}"
 }
 
 # ***
