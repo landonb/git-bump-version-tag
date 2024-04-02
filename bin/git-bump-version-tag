@@ -63,8 +63,8 @@ VERSION_FULL="${PROG_NAME} >= ${VERSION} ${VERSION_DATE}"
 
 # Used by print_current_project_version_with_head_distance.
 # SPIKE: What's the convention here? A ~tilde? A !bang?
-#  VERSION_DISTANCE_SYMBOL="${VERSION_DISTANCE_SYMBOL:- 🔻}"
-VERSION_DISTANCE_SYMBOL="${VERSION_DISTANCE_SYMBOL:-~}"
+#  BUMP_DIST_BEHIND_MARK="${BUMP_DIST_BEHIND_MARK:- 🔻}"
+BUMP_DIST_BEHIND_MARK="${BUMP_DIST_BEHIND_MARK:-~}"
 
 # ***
 
@@ -699,7 +699,7 @@ must_resolve_user_args () {
         D | -D | dist | --dist | distance | --distance)
           # The currect project version.
           VERSION_DISTANCE_ONLY="true" \
-          VERSION_DISTANCE_SYMBOL="" \
+          BUMP_DIST_BEHIND_MARK="" \
             print_current_project_version_with_head_distance "${curr_version}"
 
           exit_0
@@ -1002,7 +1002,7 @@ print_current_project_version_with_head_distance () {
 
   if [ ${curr_vers_distance} -ne 0 ]; then
     # E.g., "1.1.7 🔻17", or perhaps "1.1.7~17".
-    curr_vers_dist_suffix="${VERSION_DISTANCE_SYMBOL}${curr_vers_distance}"
+    curr_vers_dist_suffix="${BUMP_DIST_BEHIND_MARK}${curr_vers_distance}"
   fi
 
   echo "${best_version}${curr_vers_dist_suffix}"
