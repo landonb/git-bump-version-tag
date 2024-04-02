@@ -2867,11 +2867,10 @@ attr_reset () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-_NORMAL_EXIT=false
+_EXIT_RETCODE=-1
 
-exit_1 () { _NORMAL_EXIT=true; exit 1; }
-
-exit_0 () { _NORMAL_EXIT=true; exit 0; }
+exit_1 () { _EXIT_RETCODE=1; exit 1; }
+exit_0 () { _EXIT_RETCODE=0; exit 0; }
 
 _STAGED=false
 _WIPPED=false
@@ -2880,15 +2879,19 @@ exit_cleanup () {
   git_pop_wipped_wip_commit_maybe
   git_undo_staged_wip_commit_maybe
 
-  if ! ${_NORMAL_EXIT}; then
+  if [ ${_EXIT_RETCODE} -lt 0 ]; then
     # Dev: Unexpected error path occurred, you might wanna graceify.
     >&2 echo "ALERT: ${PROG_NAME} exited abnormally!"
     >&2 echo "- Hint: Enable \`set -x\` and run again..."
   fi
+
+  trap - EXIT INT
+
+  exit ${_EXIT_RETCODE}
 }
 
 int_cleanup () {
-  _NORMAL_EXIT=true
+  _EXIT_RETCODE=2
 
   exit_cleanup
 }
