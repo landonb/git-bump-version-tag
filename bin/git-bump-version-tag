@@ -3162,6 +3162,10 @@ attr_bold () {
   printf "\033[1m"
 }
 
+attr_reset () {
+  printf "\033[0m"
+}
+
 highlight_fail () {
   printf "$(fg_pink)$@$(attr_reset)"
 }
@@ -3184,10 +3188,6 @@ fg_lightorange () {
 
 fg_pink () {
   printf "\033[38;2;255;135;175m"
-}
-
-attr_reset () {
-  printf "\033[0m"
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
