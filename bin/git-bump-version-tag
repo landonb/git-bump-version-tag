@@ -1843,9 +1843,15 @@ check_version_tag_gt_earlier_version () {
 
   if [ "${version_tag}" = "${earlier_version}" ]; then
     if [ -n "${alert_fiver}" ]; then
+      earlier_commit="$(git_tag_commit_object "${earlier_version}")"
+
       local addendum=""
-      if [ -n "${tag_commit}" ]; then
-        addendum=" (at or before $(git_sha_shorten "${tag_commit}"))"
+      if [ "${tag_commit}" = "${earlier_commit}" ]; then
+        addendum=" (on the same commit — $(print_head_dist_and_ref_name "${tag_commit}"))"
+      elif [ -n "${tag_commit}" ]; then
+        addendum=" (before $( \
+          print_head_dist_and_ref_name "${tag_commit}"
+        ) — at $(print_head_dist_and_ref_name "${earlier_commit}"))"
       else
         addendum=" (outside this branch)"
       fi
