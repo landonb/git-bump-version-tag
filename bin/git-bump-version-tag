@@ -398,6 +398,7 @@ print_git_remote_default_branch_name () {
 must_remote_exists () {
   local remote_name="$1"
 
+  # Calls get-url (not a network call).
   git_remote_exists "${remote_name}" && return || true
 
   >&2 echo "ERROR: No remote named “${remote_name}”"
