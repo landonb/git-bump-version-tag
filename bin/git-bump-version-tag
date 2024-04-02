@@ -600,7 +600,8 @@ must_resolve_user_args () {
   BUMP_IS_PRERELEASE=false
   UPSTREAM_ARG=""
   TAG_COMMIT_ARG=""
-  VERSION_ARG=""
+  # Don't reset VERSION_ARG, so ACTION_DISTANCE can use.
+  #  VERSION_ARG=""
   REPLAY_ARGS=""
 
   while [ $# -gt 0 ]; do
@@ -718,7 +719,8 @@ must_resolve_user_args () {
             add_replay "${_replay_arg:-D}"
           else
             BUMP_DIST_BEHIND_MARK="" \
-              print_current_project_version_with_head_distance "${curr_version}"
+              print_current_project_version_with_head_distance \
+              "${VERSION_ARG:-${curr_version}}"
 
             exit_0
           fi
