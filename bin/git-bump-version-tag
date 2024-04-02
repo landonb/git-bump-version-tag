@@ -1688,6 +1688,7 @@ check_version_tag_gt_earlier_version () {
   local alert_fiver="${4:-ERROR}"
 
   if [ -z "${earlier_version}" ]; then
+
     return 0
   fi
 
