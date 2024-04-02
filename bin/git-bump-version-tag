@@ -2487,7 +2487,11 @@ push_or_delete () {
     # Set tag_commit to tag commit ID, which we pass to remote delete tag
     # so it can check for conflict (not that it really matters on delete,
     # but could be interesting to user).
-    tag_commit="$(git_tag_commit_object "${VERSION_TAG}")"
+    if ! tag_commit="$(git_tag_commit_object "${VERSION_TAG}")"; then
+      >&2 echo "🙅 No such version “${VERSION_TAG}”"
+
+      exit_1
+    fi
   fi
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
