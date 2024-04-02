@@ -1657,16 +1657,61 @@ check_version_tag_lt_later_version () {
     return 0
   fi
 
-  local other_commit
-  other_commit="$(git_tag_commit_object "${later_version}")"
-
-  >&2 echo "ERROR: Cannot apply version to older commit larger than later version"
-  >&2 echo "- Apply version: “${version_tag}”"
-  >&2 echo "  - Dest commit: “${tag_commit}”"
-  >&2 echo "- Conlicts with: “${later_version}” (Smallest version after commit)"
-  >&2 echo "  - From commit: “${other_commit}”"
+  print_versions_out_of_order_error "larger" "behind smaller" \
+    "${version_tag}" "${tag_commit}" "${later_version}" \
+    " (larger version behind)" " (smaller version ahead)"
 
   return 1
+}
+
+print_versions_out_of_order_error () {
+  local lhs_comparator="$1"
+  local rhs_comparator="$2"
+  local version_tag="$3"
+  local tag_commit="$4"
+  local conflicts_version="$5"
+
+  lhs_addendum=" (larger version behind)"
+  rhs_addendum=" (smaller version ahead)"
+  if [ "${lhs_comparator}" = "smaller" ]; then
+    local flipflop="${lhs_addendum}"
+    lhs_addendum="${rhs_addendum}"
+    rhs_addendum="${flipflop}"
+  fi
+
+  local conflicts_commit
+  conflicts_commit="$(git_tag_commit_object "${conflicts_version}")"
+
+  local pad_width=0
+  pad_width="$( \
+    { printf "%s" "“${version_tag}”" | wc -c ; 
+      printf "%s" "“${conflicts_version}”" | wc -c ;
+    } | sort -n | tail -1
+  )"
+  print_padded () {
+    printf "%-${pad_width}s" "$1"
+  }
+
+  >&2 echo "ERROR: Cannot apply ${lhs_comparator} version to commit ${rhs_comparator} version"
+  >&2 echo "- Apply version: $(print_padded "“${version_tag}”")${lhs_addendum}"
+  >&2 echo "  - Dest commit: $(print_head_dist_and_ref_name "${tag_commit}")"
+  >&2 echo "- Conlicts with: $(print_padded "“${conflicts_version}”")${rhs_addendum}"
+  >&2 echo "  - From commit: $(print_head_dist_and_ref_name "${conflicts_commit}")"
+}
+
+print_head_dist_and_ref_name () {
+  local gitref="${1:-HEAD}"
+  local friendly="$2"
+
+  if [ $# -lt 2 ]; then
+    friendly="$( \
+      GITNUBS_LENGTH_SHORT_SHA=7 git_sha_shorten "$(
+        git_commit_object_name "${gitref}"
+      )"
+    )"
+  fi
+
+  printf "%s" "$(print_head_distance_id "${gitref}") “${friendly}”"
 }
 
 print_head_distance_id () {
@@ -1816,21 +1861,15 @@ check_version_tag_gt_earlier_version () {
     return 0
   fi
 
-  local other_commit
-  other_commit="$(git_tag_commit_object "${earlier_version}")"
-
   if [ "${alert_fiver}" = "ERROR" ]; then
-    >&2 echo "ERROR: Cannot apply version to older commit smaller than earlier version"
-    >&2 echo "- Apply version: “${version_tag}”"
-    >&2 echo "  - Dest commit: “${tag_commit}”"
-    >&2 echo "- Conlicts with: “${earlier_version}” (Largest version before commit)"
-    >&2 echo "  - From commit: “${other_commit}”"
+    print_versions_out_of_order_error "smaller" "ahead of larger" \
+      "${version_tag}" "${tag_commit}" "${earlier_version}"
   elif [ -n "${alert_fiver}" ]; then
     >&2 echo "${alert_fiver}: Found "${earlier_version}" outside branch larger than new version"
     >&2 echo "- Apply version: “${version_tag}”"
     >&2 echo "  - Curr branch: “$(git_branch_name)”"
-    >&2 echo "- Conlicts with: “${earlier_version}” (Largest version outside branch)"
-    >&2 echo "  - From commit: “${other_commit}”"
+    >&2 echo "- Conlicts with: “${earlier_version}” (larger version from outside branch)"
+    >&2 echo "  - From commit: $(print_head_dist_and_ref_name "${other_commit}")"
   fi
 
   return 1
