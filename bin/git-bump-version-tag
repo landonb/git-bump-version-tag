@@ -615,7 +615,7 @@ must_resolve_user_args () {
             skip_opts=2
 
             UPSTREAM_ARG="${cur_arg}"
-          elif is_known_commit_sha "${cur_arg}"; then
+          elif is_known_commit_ref "${cur_arg}"; then
             skip_opts=3
 
             TAG_COMMIT_ARG="${cur_arg}"
@@ -631,7 +631,7 @@ must_resolve_user_args () {
         elif [ ${skip_opts} -eq 2 ]; then
           skip_opts=3
 
-          if is_known_commit_sha "${cur_arg}"; then
+          if is_known_commit_ref "${cur_arg}"; then
             TAG_COMMIT_ARG="${cur_arg}"
           else
             >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
@@ -660,7 +660,7 @@ must_resolve_user_args () {
       skip_opts=2
 
       UPSTREAM_ARG="${cur_arg}"
-    elif is_known_commit_sha "${cur_arg}"; then
+    elif is_known_commit_ref "${cur_arg}"; then
       skip_opts=3
 
       TAG_COMMIT_ARG="${cur_arg}"
@@ -927,22 +927,10 @@ validate_branch_name () {
   git check-ref-format --branch "${branch_name}" >/dev/null 2>&1
 }
 
-is_known_commit_sha () {
-  local word="$1"
+is_known_commit_ref () {
+  local gitref="$1"
 
-  contains_only_alphanums "${word}" || return 1
-
-  [ "${word}" = "HEAD" ] && return 0 || true
-
-  git rev-parse "${word}" > /dev/null 2>&1 || return 1
-
-  [[ "$(git rev-parse "${word}")" = "${word}"* ]]
-}
-
-contains_only_alphanums () {
-  local word="$1"
-
-  echo "${word}" | grep -q -E -e "^[a-zA-Z0-9]+$"
+  git_commit_object_name "${gitref}" > /dev/null
 }
 
 # ***
