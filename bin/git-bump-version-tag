@@ -1280,9 +1280,9 @@ git_tag_local_add () {
 
   insist_git_user_configured
 
-  echo_or_eval git tag -a "${version_tag}" \
-    -m "'Version: ${version_tag#${GITNUBS_PREFIX:v}}'" \
-    "${tag_commit}"
+  echo_or_eval "git tag -a \"${version_tag}\" \\
+    -m \"Version: ${version_tag#${GITNUBS_PREFIX:v}}\" \\
+    \"${tag_commit}\""
 
   echo "✓ Created local tag"
 }
@@ -1316,7 +1316,7 @@ git_tag_local_delete () {
   git_bump_confirm_delete "${version_tag}" "" \
     || return 0
 
-  echo_or_eval git tag -d "${version_tag}"
+  echo_or_eval "git tag -d \"${version_tag}\""
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -1344,7 +1344,7 @@ git_tag_remote_delete () {
   #           git push --delete ${remote_name} ${tag_name}
   #       But that syntax might also delete a branch of the same name.
   #       So be :obtuse, and be specific about what's being deleted.
-  echo_or_eval git push "${remote_name}" ":refs/tags/${version_tag}"
+  echo_or_eval "git push \"${remote_name}\" \":refs/tags/${version_tag}\""
 }
 
 git_tag_remote_push () {
@@ -1447,7 +1447,8 @@ git_tag_remote_push () {
   #   - Note that we previously bailed if ${remote_branch} is
   #     not the same as the local branch.
   if ! "${skip_push_branch}"; then
-    echo_or_eval git push "${remote_name}" "${tag_commit}:refs/heads/${remote_branch}"
+    echo_or_eval git push "\"${remote_name}\" \
+      \"${tag_commit}:refs/heads/${remote_branch}\""
 
     echo "✓ Pushed remote branch"
   fi
@@ -1471,7 +1472,7 @@ git_tag_remote_push () {
   # but it'll be replaced after your CI runs and creates a proper
   # release (well, assuming you have a release workflow tied to a
   # version tag event).
-  echo_or_eval git push "${remote_name}" "refs/tags/${version_tag}"
+  echo_or_eval "git push \"${remote_name}\" \"refs/tags/${version_tag}\""
 
   echo "✓ Pushed remote tag"
 }
