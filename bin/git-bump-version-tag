@@ -2337,13 +2337,13 @@ resolve_curr_version () {
 
 resolve_remote_branch () {
   local remote_name="$1"
-  local remote_name_arg="$2"
+  local upstream_arg="$2"
 
   local remote_branch=""
 
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
-    if [ -n "${remote_name_arg}" ]; then
-      remote_branch="$(git_upstream_parse_branch_name "${remote_name_arg}")"
+    if [ -n "${upstream_arg}" ]; then
+      remote_branch="$(git_upstream_parse_branch_name "${upstream_arg}")"
     fi
 
     # We could defer to the upstream config next...
