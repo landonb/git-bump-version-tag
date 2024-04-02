@@ -1422,7 +1422,8 @@ git_tag_remote_push () {
 
   # Prefix the git_tag_remote_verify_commit output to better
   # distinguish it from other messages.
-  printf '%s' '- '
+  #
+  #  printf '%s' '- '
 
   # Delete remote version tag from target commit.
   # - This makes a network call (via git-ls-remote).
