@@ -1859,6 +1859,11 @@ version_tags_contain () {
   local existing_tags="$1"
   local version_tag="$2"
 
+  if [ -z "${version_tag}" ]; then
+
+    return 1
+  fi
+
   local existing_tag
   while IFS= read -r existing_tag; do
     [ -n "${existing_tag}" ] || continue
