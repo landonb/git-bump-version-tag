@@ -464,7 +464,7 @@ parse_version_parts () {
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 # Sets VERSION_TAG and ACTION_DELETE,
-# maybe REMOTE_NAME_ARG, and/or TAG_COMMIT_ARG,
+# maybe UPSTREAM_ARG, and/or TAG_COMMIT_ARG,
 # and sets REPLAY_ARGS.
 
 must_resolve_user_args () {
@@ -588,7 +588,7 @@ must_resolve_user_args () {
   ACTION_DELETE=false
   ACTION_PUSH=false
   BUMP_IS_PRERELEASE=false
-  REMOTE_NAME_ARG=""
+  UPSTREAM_ARG=""
   TAG_COMMIT_ARG=""
   REPLAY_ARGS=""
 
@@ -614,7 +614,7 @@ must_resolve_user_args () {
           if is_known_upstream "${cur_arg}"; then
             skip_opts=2
 
-            REMOTE_NAME_ARG="${cur_arg}"
+            UPSTREAM_ARG="${cur_arg}"
           elif is_known_commit_sha "${cur_arg}"; then
             skip_opts=3
 
@@ -659,7 +659,7 @@ must_resolve_user_args () {
     elif is_known_upstream "${cur_arg}"; then
       skip_opts=2
 
-      REMOTE_NAME_ARG="${cur_arg}"
+      UPSTREAM_ARG="${cur_arg}"
     elif is_known_commit_sha "${cur_arg}"; then
       skip_opts=3
 
@@ -883,7 +883,7 @@ like_a_version () {
   echo "${word}" | grep -q -E "${GITNUBS_RE_VERSPARTS}"
 }
 
-# Check if <UPSTREAM> arg (REMOTE_NAME_ARG)
+# Check if remote from <UPSTREAM> arg (UPSTREAM_ARG) is in local config.
 is_known_upstream () {
   local upstream="$1"
 
@@ -2032,19 +2032,18 @@ git_bump_tag_vers_push () {
   local ACTION_DELETE=false
   local ACTION_PUSH=false
   local BUMP_IS_PRERELEASE=false
-  local REMOTE_NAME_ARG=""
   local TAG_COMMIT_ARG=""
   local REPLAY_ARGS=""
   # If version specified, fails if not greater than current version.
   # If bump args specified (from CLI), fails on args error.
   # - Sets VERSION_TAG and ACTION_DELETE,
-  #   and maybe REMOTE_NAME_ARG, and/or TAG_COMMIT.
+  #   and maybe UPSTREAM_ARG, and/or TAG_COMMIT.
   must_resolve_user_args "${curr_version}" "$@"
 
   # ***
 
   local remote_name
-  remote_name="$(resolve_remote_name "${REMOTE_NAME_ARG}" "${VERSION_TAG}")" \
+  remote_name="$(resolve_remote_name "${UPSTREAM_ARG}" "${VERSION_TAG}")" \
     || exit_1
 
   # Side-effect: Might git-fetch to get most recent tags.
@@ -2053,7 +2052,7 @@ git_bump_tag_vers_push () {
 
   local remote_branch
   local DEFAULT_BRANCH=""
-  remote_branch="$(resolve_remote_branch "${remote_name}" "${REMOTE_NAME_ARG}")" \
+  remote_branch="$(resolve_remote_branch "${remote_name}" "${UPSTREAM_ARG}")" \
     || exit_1
 
   local remote_head_sha
@@ -2067,7 +2066,7 @@ git_bump_tag_vers_push () {
   tag_commit="$( \
     resolve_tag_commit "${TAG_COMMIT_ARG}" \
       "${remote_name}" "${remote_branch}" \
-      "${remote_head_sha}" "${REMOTE_NAME_ARG}"
+      "${remote_head_sha}" "${UPSTREAM_ARG}"
   )" \
     || exit_1
 
