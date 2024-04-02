@@ -1186,7 +1186,6 @@ git_bump_confirm_normalize () {
 
 git_bump_confirm_delete () {
   local version_tag="$1"
-  # local remote_name="$2"
   local remote_name="${2:-localhost}"
 
   local msg="Okay to delete “${version_tag}”"
