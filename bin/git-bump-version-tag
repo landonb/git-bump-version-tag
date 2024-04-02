@@ -595,9 +595,14 @@ must_resolve_user_args () {
   local ACTION_SAME=false
   local VERSION_ARG=""
 
-  while [ -n "$1" ]; do
+  while [ $# -gt 0 ]; do
     local cur_arg="$1"
     shift
+
+    if [ -z "${cur_arg}" ]; then
+
+      continue
+    fi
 
     if [ ${skip_opts} -gt 0 ]; then
       if ! ${end_of_options} && [ "${cur_arg}" = '--' ]; then
