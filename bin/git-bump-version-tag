@@ -1199,6 +1199,17 @@ git_bump_confirm_delete () {
 
   local msg="Okay to delete “${version_tag}”"
 
+  local head_dist_ref=""
+  if [ -n "$(git tag -l --merged HEAD "${version_tag}")" ]; then
+    head_dist_ref="$(print_head_dist_and_ref_name "refs/tags/${version_tag}")"
+  fi
+
+  if [ -n "${head_dist_ref}" ]; then
+    msg="${msg} (at ${head_dist_ref})"
+  else
+    msg="${msg} (not merged with HEAD)"
+  fi
+
   if [ -n "${remote_name}" ]; then
     msg="${msg} from “${remote_name}”"
   fi
