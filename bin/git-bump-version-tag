@@ -2576,8 +2576,19 @@ alert_if_inherent_upstream_branch_ne_local_branch_name () {
           || true
 
         if [ "${remote_branch}" != "${upstream_branch}" ]; then
-          >&2 echo "ALERT: Pushing tag to differently-named remote branch"
-          >&2 echo "- Pushing from “${local_branch}” to “${remote_branch}”"
+          local action_msg=""
+          if ${ACTION_DELETE}; then
+            action_msg="Deleting tag from"
+          elif ${ACTION_CURRENT} || ${ACTION_DISTANCE}; then
+            action_msg="Checking tags from"
+          else
+            # I.e., ACTION_PUSH | ACTION_CHECK
+            action_msg="Pushing tag to"
+          fi
+
+          >&2 echo "ALERT: ${action_msg} differently-named remote branch"
+          >&2 echo "- Local branch “${local_branch}” <> “${remote_name}/${remote_branch}”"
+          >&2 echo "- You can inhibit this message with explicit <UPSTREAM> arg"
         fi
       fi
     fi
