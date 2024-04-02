@@ -1225,6 +1225,9 @@ git_bump_confirm_delete () {
 git_bump_confirm_push () {
   local version_tag="$1"
   local remote_name="$2"
+  local tag_commit="$3"
+  local remote_head_sha="$4"
+  local skip_push_branch="$5"
 
   if ${BMP_RESTRICT_LOCAL:-false}; then
     THE_CHOICE="n"
@@ -1232,7 +1235,15 @@ git_bump_confirm_push () {
     return 1
   fi
 
-  local msg="Okay to push “${version_tag}” to “${remote_name}”"
+  local including_msg=""
+  if ! ${skip_push_branch}; then
+    # Means tag_commit > remote_head_sha, i.e., need to push commits, too.
+    local distance="$(git_distance_between_commits "${remote_head_sha}" "${tag_commit}")"
+
+    including_msg=" — $(attr_bold)including ${distance} commits$(attr_reset)"
+  fi
+
+  local msg="Okay to push “${version_tag}” to “${remote_name}”${including_msg}"
 
   local THE_CHOICE
   ask_yesnoskip_maybe "${msg}" "Y"
@@ -1503,6 +1514,7 @@ git_tag_remote_push () {
   fi
 
   git_bump_confirm_push "${version_tag}" "${remote_name}" \
+    "${tag_commit}" "${remote_head_sha}" "${skip_push_branch}" \
     || return 0
 
   # If user specified "HEAD" <COMMIT>, push that, too.
@@ -3145,6 +3157,10 @@ normalize_version_with_style () {
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+attr_bold () {
+  printf "\033[1m"
+}
 
 highlight_fail () {
   printf "$(fg_pink)$@$(attr_reset)"
