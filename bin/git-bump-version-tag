@@ -1898,9 +1898,11 @@ check_version_tag_gt_earlier_version () {
   fi
 
   if [ "${alert_fiver}" = "ERROR" ]; then
+    # Caller will exit.
     print_versions_out_of_order_error "smaller" "ahead of larger" \
       "${version_tag}" "${tag_commit}" "${earlier_version}"
-  elif [ -n "${alert_fiver}" ]; then
+  elif [ -n "${alert_fiver}" ] && ! ${ACTION_SAME}; then
+    # Recoverable error (earlier_version from outside branch).
     >&2 echo "${alert_fiver}: Found "${earlier_version}" outside branch larger than new version"
     >&2 echo "- Apply version: “${version_tag}”"
     >&2 echo "  - Curr branch: “$(git_branch_name)”"
