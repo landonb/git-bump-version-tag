@@ -3258,8 +3258,8 @@ main () {
   # for unattended CI runs.
   set -e
 
-  trap exit_cleanup EXIT
-  trap int_cleanup INT
+  trap -- exit_cleanup EXIT
+  trap -- int_cleanup INT
 
   source_deps
 
