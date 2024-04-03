@@ -3242,6 +3242,10 @@ exit_cleanup () {
 
   trap - EXIT INT
 
+  # On EXIT, we don't need to exit; shell will keep exiting and use
+  # the orignal `exit` call value. But on INT, execution would
+  # continue, so we must `exit` explicitly. In both cases (EXIT or
+  # INT), the exit value here is what the caller sees.
   exit ${_EXIT_RETCODE}
 }
 
