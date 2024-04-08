@@ -2332,6 +2332,8 @@ git_bump_tag_vers_push () {
       "${remote_branch}" \
       "${_local_head_sha:-$(git_HEAD_commit_sha)}" \
       "${remote_head_sha}" 2> /dev/null
+    # Exited on failure. Prints version tag only on success.
+    echo "${VERSION_TAG}"
   else
     # Create or delete local and/or remote tags.
     manage_tags "${CURR_VERSION}" "${TAG_COMMIT}" \
