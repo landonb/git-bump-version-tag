@@ -1729,6 +1729,7 @@ print_versions_out_of_order_error () {
   >&2 echo "  - From commit: $(print_head_dist_and_ref_name "${conflicts_commit}")"
 }
 
+# Prints, e.g., 'HEAD~1+6 “publish/release”'
 print_head_dist_and_ref_name () {
   local gitref="${1:-HEAD}"
   local friendly="$2"
