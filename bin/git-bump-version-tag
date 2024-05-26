@@ -2549,7 +2549,7 @@ resolve_tag_commit () {
     print_head_dist_and_ref_name "${tag_commit}" ${tag_commit_ref_name}
   )"
 
-  # Silly Bash-specific (caller uses <<<$()) return mechanism.
+  # Silly multi-value return mechanism (caller ingests by fiddling IFS).
   echo "${tag_commit}"
   echo "${tag_commit_name}"
 }
@@ -2620,14 +2620,51 @@ must_resolve_tag_commit_and_curr_version () {
   _resolve_tag_commit () {
     local tag_commit_ref="$1"
 
-    # 2024-04-01: Bash-specific (b/c <<<$() or < <()) multiple-variable
-    # read consumer.
-    # - Sorta hacky, sort nifty...
-    IFS=$'\n' read -d '\n' tag_commit TAG_COMMIT_NAME <<<$( \
+    # TRCKY: Caller returns multiple values, split by newlines.
+    # - Sorta hacky, sort nifty, definitely tricky.
+    #
+    # - Note that multiple-variable `read` consumer doesn't work
+    #   in POSIX/Bash v3, b/c IFS=$'\n' doesn't work as expected.
+    #
+    #   - E.g., consider Bash v3:
+    #
+    #     BashV3@macOS $ input=$'line 1\nline 2\nline 3'
+    #     BashV3@macOS $ IFS=$'\n' read -d '\n' ln1 ln2 ln3 <<<${input} ; echo $ln1
+    #     line 1 line 2 line 3
+    #
+    #   - Compared to Bash v5:
+    #
+    #     BashV5@macOS $ IFS=$'\n' read -d '\n' ln1 ln2 ln3 <<<${input} ; echo $ln1
+    #     line 1
+    #
+    #   - Also note that `<<<$()` (or similar `< <()`) is a Bashism (not POSIX).
+    #
+    # - However, unpacking the output to an array works everywhere, e.g.,
+    #
+    #     $ /bin/sh
+    #     $ input=$'line 1\nline 2\nline 3'
+    #     $ IFS=$'\n'
+    #     $ arr=($input)
+    #     $ IFS=$' \t\n'
+    #     $ echo "${arr[0]}"
+    #     line 1
+
+    local tag_commit_and_name
+    tag_commit_and_name="$( \
       resolve_tag_commit "${tag_commit_ref}" \
         "${remote_name}" "${remote_branch}" \
         "${remote_head_sha}"
-      )
+    )"
+
+    declare -a values
+
+    IFS=$'\n'
+    values=(${tag_commit_and_name})
+    # `man bash` (v3) says IFS "default value is ``<space><tab><newline>''."
+    IFS=$' \t\n'
+
+    tag_commit="${values[0]}"
+    TAG_COMMIT_NAME="${values[1]}"
   }
 
   _advance_tag_commit () {
