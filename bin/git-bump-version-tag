@@ -302,6 +302,7 @@ source_deps () {
   # CXREF: https://github.com/DepoXy/git-put-wise#🥨
   #   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
   #   ~/.kit/git/git-put-wise/lib/dep_apply_confirm_patch_base.sh
+  # SAVVY: common_put_wise.sh requires Bash (it uses `< <()`).
   if command -v git-put-wise > /dev/null; then
     local put_wise_bin="$(dirname -- "$(realpath -- "$(command -v git-put-wise)")")"
     . "${put_wise_bin}/../lib/common_put_wise.sh"
