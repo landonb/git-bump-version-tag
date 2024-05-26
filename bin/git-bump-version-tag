@@ -3224,37 +3224,50 @@ fg_pink () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-_EXIT_RETCODE=-1
-
-exit_1 () { _EXIT_RETCODE=1; exit 1; }
-exit_0 () { _EXIT_RETCODE=0; exit 0; }
-
 _STAGED=false
 _WIPPED=false
 
-exit_cleanup () {
+app_cleanup () {
   git_pop_wipped_wip_commit_maybe
   git_undo_staged_wip_commit_maybe
 
-  if [ ${_EXIT_RETCODE} -lt 0 ]; then
-    # Dev: Unexpected error path occurred, you might wanna graceify.
-    >&2 echo "ALERT: ${PROG_NAME} exited abnormally!"
-    >&2 echo "- Hint: Enable \`set -x\` and run again..."
-  fi
-
-  trap - EXIT INT
-
-  # On EXIT, we don't need to exit; shell will keep exiting and use
-  # the orignal `exit` call value. But on INT, execution would
-  # continue, so we must `exit` explicitly. In both cases (EXIT or
-  # INT), the exit value here is what the caller sees.
-  exit ${_EXIT_RETCODE}
+  clear_traps
 }
 
-int_cleanup () {
-  _EXIT_RETCODE=2
+clear_traps () {
+  trap - EXIT INT
+}
 
-  exit_cleanup
+set_traps () {
+  trap -- trap_exit EXIT
+  trap -- trap_int INT
+}
+
+exit_0 () {
+  app_cleanup
+
+  exit 0
+}
+
+exit_1 () {
+  app_cleanup
+
+  exit 1
+}
+
+trap_exit () {
+  app_cleanup
+  # USAGE: Alert on unexpected error path, so you can add happy path.
+  >&2 echo "ALERT: "$(basename -- "$0")" exited abnormally!"
+  >&2 echo "- Hint: Enable \`set -x\` and run again..."
+
+  exit 2
+}
+
+trap_int () {
+  app_cleanup
+
+  exit 3
 }
 
 # ***
@@ -3264,21 +3277,15 @@ main () {
   # for unattended CI runs.
   set -e
 
-  trap -- exit_cleanup EXIT
-  trap -- int_cleanup INT
+  set_traps
 
   source_deps
 
   GITNUBS_LENGTH_SHORT_SHA="${GITNUBS_LENGTH_SHORT_SHA:-7}"
 
-  local EXIT_CODE=0
-
   git_bump_tag_vers_push "$@"
 
-  # Unhook traps.
-  trap - EXIT INT
-
-  return ${EXIT_CODE}
+  clear_traps
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
