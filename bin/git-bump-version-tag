@@ -364,7 +364,7 @@ print_git_remote_default_branch_name () {
     >&2 echo "ERROR: No local branches found for remote “${remote_name}”" \
       "Perhaps you need to fetch?"
 
-    return 1
+    return 0
   fi
 
   if [ ${num_branches} -eq 1 ]; then
