@@ -1,5 +1,5 @@
 #!/bin/sh
-# vim:tw=0:ts=2:sw=2:et:norl:ft=sh
+# vim:tw=0:ts=2:sw=2:et:norl:ft=bash
 # Project: https://github.com/landonb/sh-ask-yesnoskip#😷
 # License: MIT
 
@@ -40,9 +40,12 @@ ask_yesnoskip () {
   if ${SKIP_PROMPTS:-false}; then
     the_choice='s'
   else
-    read -e the_choice
+    read the_choice
 
-    if [ -z "${the_choice}" ]; then
+    # On Linux (Bash v5), hitting Enter at the prompt doesn't print
+    # a newline, so do so here. But on macOS (whether Bash v3 or
+    # Bash v5) read prints the newline, so don't do so here.
+    if [ -z "${the_choice}" ] && ! os_is_macos; then
       >&2 echo
     fi
   fi
@@ -53,7 +56,7 @@ ask_yesnoskip () {
   fi
 
   # Lowercase the input.
-  the_choice="${the_choice,,}"
+  the_choice="$(echo "${the_choice}" | tr '[:upper:]' '[:lower:]')"
 
   # ***
 
@@ -68,6 +71,12 @@ ask_yesnoskip () {
 
   # Prints either 'y' or 's'.
   printf %s "${the_choice}"
+}
+
+# ***
+
+os_is_macos () {
+  [ "$(uname)" = 'Darwin' ]
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
