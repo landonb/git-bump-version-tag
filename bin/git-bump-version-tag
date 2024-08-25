@@ -262,7 +262,7 @@ OVERRIDES: Set these environment variables for alternative behavior:
   SCOPING_PREFIX=\"${SCOPING_PREFIX:-PROTECTED: }\"
   PRIVATE_PREFIX=\"${PRIVATE_PREFIX:-PRIVATE: }\"
             Specifies the commit message prefixes that designate which
-            commits should not be published
+            commits should not be published, if git-put-wise is installed
             - Used when <COMMIT> is specified as \"HEAD\"
             - Only works if git-put-wise is installed
               (see note under <COMMIT>, above)
