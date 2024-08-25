@@ -34,13 +34,6 @@ BUMP_VERBATIM="${BUMP_VERBATIM:-false}"
 
 BUMP_SKIP_REMOTE="-"
 
-# USYNC: Same environ name as what git-put-wise uses.
-# CXREF: https://github.com/DepoXy/git-put-wise#🥨
-#   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
-#
-SCOPING_PREFIX="${SCOPING_PREFIX:-PROTECTED: }"
-PRIVATE_PREFIX="${PRIVATE_PREFIX:-PRIVATE: }"
-
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 PROG_NAME_FRIENDLY="git-bump-version-tag"
@@ -73,7 +66,15 @@ BUMP_DIST_SCOPED_MARK="${BUMP_DIST_SCOPED_MARK:-+}"
 USAGE_ONELINE="\
 USAGE: ${PROG_NAME} [ACTIONS...] [OPTIONS...] [<VERSIONTAG>] [--] [<UPSTREAM>] [<COMMIT>]"
 
-USAGE_SUMMARY="
+print_usage_summary () {
+  # Set default scoping patterns, in case git-put-wise not installed.
+  # USYNC: Matches latest common_put_wise.sh values.
+  # CXREF: https://github.com/DepoXy/git-put-wise#🥨
+  #   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
+  SCOPING_PREFIX="${SCOPING_PREFIX:-PROTECTED: }"
+  PRIVATE_PREFIX="${PRIVATE_PREFIX:-PRIVATE: }"
+
+  USAGE_SUMMARY="
 ACTIONS
 ~~~~~~~
 
@@ -268,6 +269,8 @@ OVERRIDES: Set these environment variables for alternative behavior:
               - You can find git-put-wise at
                 https://github.com/DepoXy/git-put-wise#🥨
 "
+  echo "${USAGE_SUMMARY}"
+}
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -970,7 +973,7 @@ print_usage () {
 
   echo "${USAGE_ONELINE}"
 
-  echo "${USAGE_SUMMARY}"
+  print_usage_summary
 
   if ${include_details}; then
     echo "${USAGE_DETAILS}"
