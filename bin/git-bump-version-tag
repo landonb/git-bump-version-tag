@@ -2545,7 +2545,9 @@ resolve_tag_commit () {
     if ${ACTION_SAME}; then
       local curr_version="$(git_largest_version_tag)"
       tag_commit="$(git_tag_commit_object "${curr_version}")"
-    elif [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+    elif [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
+      && [ -n "${remote_head_sha}" ] \
+    ; then
       # ALERT: Defaults to tagging remote/branch HEAD.
       # - Why? Because git-bump is meant to publish a new version.
       #        But it doesn't want to push unpublished commits. So
