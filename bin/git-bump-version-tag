@@ -2973,7 +2973,9 @@ validate_and_normalize_version () {
   # Verify tag_commit and remote/branch are in same line of work, unless:
   # - The operation is local-only (remote_name is "-"); or
   # - Skip-push is set, which means tag_commit same as remote_head_sha.
-  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
+  if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
+    && [ -n "${remote_head_sha}" ] \
+  ; then
     if true \
       && ! git merge-base --is-ancestor ${tag_commit} ${remote_head_sha} \
       && ! git merge-base --is-ancestor ${remote_head_sha} ${tag_commit} \
