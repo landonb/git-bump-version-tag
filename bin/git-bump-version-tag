@@ -2348,7 +2348,8 @@ git_bump_tag_vers_push () {
   else
     # Create or delete local and/or remote tags.
     manage_tags "${CURR_VERSION}" "${TAG_COMMIT}" \
-      "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+      "${remote_name}" "${remote_branch}" \
+      "${remote_head_sha}"
   fi
 }
 
@@ -2884,7 +2885,8 @@ push_or_delete () {
   if [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ]; then
     # Delete and/or push the remote tag (and maybe the branch).
     git_tag_remote_push "${VERSION_TAG}" "${tag_commit}" \
-      "${remote_name}" "${remote_branch}" "${remote_head_sha}"
+      "${remote_name}" "${remote_branch}" \
+      "${remote_head_sha}"
   fi
 
   # Delete locally last, so user doesn't abandon remote tag
