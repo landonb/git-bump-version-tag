@@ -1235,8 +1235,7 @@ git_bump_confirm_push () {
   local version_tag="$1"
   local remote_name="$2"
   local tag_commit="$3"
-  local remote_head_sha="$4"
-  local skip_push_branch="$5"
+  local upstream_ref="$4"
 
   if ${BMP_RESTRICT_LOCAL:-false}; then
     THE_CHOICE="n"
@@ -1245,11 +1244,11 @@ git_bump_confirm_push () {
   fi
 
   local including_msg=""
-  if ! ${skip_push_branch}; then
-    # Means tag_commit > remote_head_sha, i.e., need to push commits, too.
-    local distance="$(git_distance_between_commits "${remote_head_sha}" "${tag_commit}")"
+  if [ -n "${upstream_ref}" ]; then
+    # Means we'll push the commits first, then publish the tag.
+    local push_distance="$(git_distance_between_commits "${upstream_ref}" "${tag_commit}")"
 
-    including_msg=" — $(attr_bold)including ${distance} commits$(attr_reset)"
+    including_msg=" — $(attr_bold)including ${push_distance} commits$(attr_reset)"
   fi
 
   local msg="Okay to push “${version_tag}” to “${remote_name}”${including_msg}"
@@ -1518,13 +1517,24 @@ git_tag_remote_push () {
   # ***
 
   local skip_push_branch=false
-  if git merge-base --is-ancestor "${tag_commit}" "${remote_head_sha}"; then
-    skip_push_branch=true
+
+  local upstream_ref=""
+
+  if [ -n "${remote_head_sha}" ]; then
+    if git merge-base --is-ancestor "${tag_commit}" "${remote_head_sha}"; then
+      skip_push_branch=true
+    else
+      upstream_ref="${remote_head_sha}"
+    fi
+  else
+    # Assume everything must be pushed.
+    upstream_ref="$(git_first_commit_sha)"
   fi
 
-  git_bump_confirm_push "${version_tag}" "${remote_name}" \
-    "${tag_commit}" "${remote_head_sha}" "${skip_push_branch}" \
+  git_bump_confirm_push "${version_tag}" "${remote_name}" "${tag_commit}" "${upstream_ref}" \
     || return 0
+
+  # ***
 
   # If user specified "HEAD" <COMMIT>, push that, too.
   # - Otherwise we're tagging the current remote branch HEAD,
