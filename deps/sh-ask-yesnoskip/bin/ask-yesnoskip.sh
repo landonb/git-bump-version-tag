@@ -16,13 +16,13 @@ ask_yesnoskip () {
   # ***
 
   if [ "${default_choice}" = "Y" ]; then
-    lng_opts='Yes/no/skip'
+    lng_opts='[Y]es/no or skip'
     sht_opts='Y/n/s'
   elif [ "${default_choice}" = "N" ]; then
-    lng_opts='yes/No/skip'
+    lng_opts='yes/[N]o or skip'
     sht_opts='y/N/s'
   elif [ "${default_choice}" = "S" ]; then
-    lng_opts='yes/no/Skip'
+    lng_opts='[S]kip or yes/no'
     sht_opts='y/n/S'
   else
     >&2 echo "ASSERT: Unrecognized default_choice: ${default_choice}"
