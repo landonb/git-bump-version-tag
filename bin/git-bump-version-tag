@@ -1638,49 +1638,6 @@ git_tag_remote_push () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-# Using --contains will find tags between ${since_commit} and any head
-# (so if you've rebased work after ${since_commit} and abandoned tags
-# in those other lines of work, --contains will find those tags).
-#    git tag -l --contains "${since_commit}" "[0-9]*" "v[0-9]*"
-# Though a better approach uses --merged HEAD --no-merged <commit>
-# to keep the search to the current branch (because any version tags
-# outside this branch are incomparable to any version within it,
-# other than maybe larger version tags; though really no user should
-# have version tags in disparate lines of work, that seems shady).
-
-git_smallest_version_tag_after () {
-  local since_commit="$1"
-
-  local smallest_patch="$( \
-    git tag -l --merged HEAD --no-merged "${since_commit}" \
-      ${GITNUBS_VERSION_TAG_PATTERNS} \
-      | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
-      | sort -V \
-      | head -n1
-  )"
-
-  # This is *ridonkulous*.
-  local smallest_including_alpha="$( \
-    git tag -l --merged HEAD --no-merged "${since_commit}" \
-      "${smallest_patch}*" \
-      "${GITNUBS_PREFIX:-v}${smallest_patch}*" \
-      | grep -E -e "${GITNUBS_RE_VERSPARTS}" \
-      | grep -E -v "^${smallest_patch}$" \
-      | perl -ne "print if s/${GITNUBS_RE_VERSPARTS}/\6, \7, \2.\3.\5\6\7/" \
-      | sed '/^$/d' \
-      | sort -k1,1 -k2,2n \
-      | head -n1 \
-      | sed -E "s/^[^,]*, [^,]*, //"
-  )"
-
-  local smallest_version="${smallest_including_alpha}"
-  [ -n "${smallest_version}" ] || smallest_version="${smallest_patch}"
-
-  printf "%s" "${smallest_version}"
-}
-
-# ***
-
 check_version_tag_lt_later_version () {
   local version_tag="$1"
   local later_version="$2"
