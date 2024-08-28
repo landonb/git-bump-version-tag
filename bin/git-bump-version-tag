@@ -3105,6 +3105,7 @@ resolve_rebase_boundary () {
   local remote_name=""
   local rebase_boundary=""
   already_sorted=false
+  already_signed=false
   if put_wise_identify_rebase_boundary_and_remotes \
     "${_action_desc:-bump}" "${_inhibit_exit_if_unidentified:-true}" \
   ; then
