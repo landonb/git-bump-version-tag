@@ -1597,7 +1597,11 @@ git_branch_remote_push () {
   fi
 
   if ${use_put_wise}; then
-    git put-wise push
+    # Use --skip-rebase because previously would've called
+    #   resort_and_sign_commits_before_push_unless_unnecessary
+    # and avoids the but-it's-okay message re: new version tag
+    # being within the rebase boundary.
+    git put-wise push --skip-rebase
   else
     echo_or_eval git push "\"${remote_name}\" \
       \"${tag_commit}:refs/heads/${remote_branch}\""
