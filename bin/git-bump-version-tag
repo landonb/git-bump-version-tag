@@ -2972,11 +2972,15 @@ sort_and_sign_commits_with_prompt_maybe () {
   fi
 
   if prompt_user_to_sort_and_sign_commits "${rebase_boundary}" "${already_sorted}"; then
-    # Exits 0 or 11 if rebase_boundary is HEAD (nothing to resort/sign).
-    # - Run in subshell so this command doesn't exit.
+    # Run in subshell so this command doesn't exit if rebase_boundary
+    # is HEAD (nothing to resort/sign).
+    # - This fcn. calls must_confirm_shares_history_with_head and then
+    #   exits 0 if starting_ref → HEAD (because no-op); or
+    #   exits 1 if ahead of HEAD, or diverged.
+    #   - Propagate nonzero exit so user can solve
     # CXREF: ~/.kit/git/git-put-wise/lib/common_put_wise.sh
-    ( resort_and_sign_commits_before_push "${rebase_boundary}" \
-        ${_enable_gpg_sign:-true}
+    ( resort_and_sign_commits_before_push_unless_unnecessary "${rebase_boundary}" \
+        ${_enable_gpg_sign:-true} \
     ) || exit_1
   fi
 }
@@ -3027,6 +3031,10 @@ is_sorted_and_signed_or_gpw_disabled () {
   fi
 
   # ***
+
+  # Verify rebase_boundary. Called fcn. echoes rebase_boundary, or prints "HEAD".
+  must_confirm_shares_history_with_head "${rebase_boundary}" > /dev/null \
+    || exit $?
 
   # Sets already_sorted=true and returns 1 if sorted but not signed;
   # Or sets already_sorted=false and returns 1 if not sorted; or
