@@ -2901,12 +2901,12 @@ push_or_delete () {
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-# USAGE: Opt-out git-put-wise using PUT_WISE_SKIP_REBASE=true
+# USAGE: Opt-out git-put-wise using PW_OPTION_SKIP_REBASE=true
 # (or don't install git-put-wise).
 
 is_git_put_wise_sort_and_sign_enabled () {
   command -v git-put-wise > /dev/null \
-    && ! ${PUT_WISE_SKIP_REBASE:-false}
+    && ! ${PW_OPTION_SKIP_REBASE:-false}
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -2917,7 +2917,7 @@ sort_and_sign_and_re_resolve_tag_commit () {
   local remote_head_sha="$3"
 
   if ! is_git_put_wise_sort_and_sign_enabled; then
-    # Means PUT_WISE_SKIP_REBASE=true, or git-put-wise not found.
+    # Means PW_OPTION_SKIP_REBASE=true, or git-put-wise not found.
 
     return 0
   fi
@@ -2987,7 +2987,7 @@ is_sorted_and_signed_or_gpw_disabled () {
   local rebase_boundary="$1"
 
   if ! is_git_put_wise_sort_and_sign_enabled; then
-    # Means PUT_WISE_SKIP_REBASE=true, or git-put-wise not found.
+    # Means PW_OPTION_SKIP_REBASE=true, or git-put-wise not found.
 
     return 0
   fi
@@ -2995,7 +2995,7 @@ is_sorted_and_signed_or_gpw_disabled () {
   if [ -z "${rebase_boundary}" ]; then
     # put_wise_identify_rebase_boundary_and_remotes set rebase_boundary to
     # empty string if rebase boundary could not be identified but all
-    # commits are sorted & signed. Or if PUT_WISE_SKIP_REBASE=true.
+    # commits are sorted & signed. Or if PW_OPTION_SKIP_REBASE=true.
 
     return 0
   fi
@@ -3132,7 +3132,7 @@ is_put_wise_push_remote_same () {
   local remote_branch="$2"
 
   if ! is_git_put_wise_sort_and_sign_enabled; then
-    # Means PUT_WISE_SKIP_REBASE=true, or git-put-wise not found.
+    # Means PW_OPTION_SKIP_REBASE=true, or git-put-wise not found.
 
     return 1
   fi
