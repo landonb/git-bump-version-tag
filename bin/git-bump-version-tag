@@ -2928,6 +2928,7 @@ sort_and_sign_and_re_resolve_tag_commit () {
   resolve_rebase_boundary
 
   if ${ACTION_CHECK} || ${ACTION_CURRENT} || ${ACTION_DELETE}; then
+    # Previous `resolve_rebase_boundary` was for integrity only.
 
     return 0
   fi
@@ -3038,7 +3039,7 @@ is_sorted_and_signed_or_gpw_disabled () {
 
   # Sets already_sorted=true and returns 1 if sorted but not signed;
   # Or sets already_sorted=false and returns 1 if not sorted; or
-  # returns 0 if sorted, and signed if requested.
+  # returns 0 if sorted, and signed if requested, since rebase_boundary.
   # - Also prints "✓ Verified ..." message, if either or both verified.
   # CXREF: ~/.kit/git/git-put-wise/lib/common_put_wise.sh
   already_sorted=false
