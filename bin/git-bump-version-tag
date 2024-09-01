@@ -3052,7 +3052,7 @@ is_sorted_and_signed_or_gpw_disabled () {
 
   # Verify rebase_boundary. Called fcn. echoes rebase_boundary, or prints "HEAD".
   must_confirm_shares_history_with_head "${rebase_boundary}" > /dev/null \
-    || exit $?
+    || exit_1
 
   # Sets already_sorted=true and returns 1 if sorted but not signed;
   # Or sets already_sorted=false and returns 1 if not sorted; or
@@ -3554,47 +3554,12 @@ fg_pink () {
 _STAGED=false
 _WIPPED=false
 
-app_cleanup () {
+sh_err_trap_user_hook () {
+  local normal_exit="$1"
+  local return_value="$2"
+
   git_pop_wipped_wip_commit_maybe
   git_undo_staged_wip_commit_maybe
-
-  clear_traps
-}
-
-clear_traps () {
-  trap - EXIT INT
-}
-
-set_traps () {
-  trap -- trap_exit EXIT
-  trap -- trap_int INT
-}
-
-exit_0 () {
-  app_cleanup
-
-  exit 0
-}
-
-exit_1 () {
-  app_cleanup
-
-  exit 1
-}
-
-trap_exit () {
-  app_cleanup
-  # USAGE: Alert on unexpected error path, so you can add happy path.
-  >&2 echo "ALERT: "$(basename -- "$0")" exited abnormally!"
-  >&2 echo "- Hint: Enable \`set -x\` and run again..."
-
-  exit 2
-}
-
-trap_int () {
-  app_cleanup
-
-  exit 3
 }
 
 # ***
@@ -3603,6 +3568,9 @@ main () {
   # Using errexit makes for a more robust script, and is esp. important
   # for unattended CI runs.
   set -e
+
+  # Load: set_traps, clear_traps, exit_0, exit_1, os_is_macos.
+  . "$(dirname -- "$(realpath -- "$0")")/../deps/sh-err-trap/lib/err-trap.sh"
 
   set_traps
 
