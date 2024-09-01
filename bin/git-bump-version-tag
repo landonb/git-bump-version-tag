@@ -639,7 +639,7 @@ must_resolve_user_args () {
           elif is_known_commit_ref "${cur_arg}"; then
             skip_opts=3
 
-            TAG_COMMIT_ARG="${cur_arg}"
+            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
           else
             >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
             local remote_name
@@ -653,7 +653,7 @@ must_resolve_user_args () {
           skip_opts=3
 
           if is_known_commit_ref "${cur_arg}"; then
-            TAG_COMMIT_ARG="${cur_arg}"
+            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
           else
             >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
 
@@ -684,7 +684,7 @@ must_resolve_user_args () {
     elif is_known_commit_ref "${cur_arg}"; then
       skip_opts=3
 
-      TAG_COMMIT_ARG="${cur_arg}"
+      TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
     else
       case "${cur_arg}" in
         s | -s | same)
@@ -968,10 +968,23 @@ validate_branch_name () {
   git check-ref-format --branch "${branch_name}" >/dev/null 2>&1
 }
 
+# ***
+
 is_known_commit_ref () {
   local gitref="$1"
 
-  git_commit_object_name "${gitref}" > /dev/null
+  [ "${gitref}" = "${GITNUBS_SPECIAL_TIG_SHA_UNSTAGED}" ] \
+    || git_commit_object_name "${gitref}" > /dev/null
+}
+
+unpack_commit_ref () {
+  local gitref="$1"
+
+  if [ "${gitref}" = "${GITNUBS_SPECIAL_TIG_SHA_UNSTAGED}" ]; then
+    printf "%s" "HEAD"
+  else
+    printf "%s" "${gitref}"
+  fi
 }
 
 # ***
