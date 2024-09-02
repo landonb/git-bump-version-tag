@@ -1266,7 +1266,10 @@ git_bump_confirm_push () {
     # Means we'll push the commits first, then publish the tag.
     local push_distance="$(git_distance_between_commits "${upstream_ref}" "${tag_commit}")"
 
-    including_msg=" — $(attr_bold)including ${push_distance} commits$(attr_reset)"
+    local inflector=""
+    [ ${push_distance} -eq 1 ] || inflector="s"
+
+    including_msg=" — $(attr_bold)including ${push_distance} commit${inflector}$(attr_reset)"
   fi
 
   local msg="Okay to push “${version_tag}” to “${remote_name}”${including_msg}"
