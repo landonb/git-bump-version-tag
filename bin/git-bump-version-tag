@@ -3028,6 +3028,8 @@ sort_and_sign_and_re_resolve_tag_commit () {
     return 0
   fi
 
+  # else, ACTION_DISTANCE, ACTION_PUSH, ACTION_SAME, or none set (implies push).
+
   local prev_head_sha
   prev_head_sha="$(git_HEAD_commit_sha)"
 
@@ -3199,6 +3201,17 @@ resolve_rebase_boundary () {
   # - This fails if version tag found after rebase boundary,
   #   unless PW_OPTION_ORPHAN_TAGS=true.
 
+  local skip_integrity_checks=false
+  if ${ACTION_CHECK} \
+    || ${ACTION_CURRENT} \
+    || ${ACTION_DELETE} \
+    || ${ACTION_DISTANCE} \
+    || ${ACTION_SAME} \
+  ; then
+    skip_integrity_checks=true
+  fi
+  # else, ACTION_PUSH, or none set (which implies push).
+
   # These vars are set by the next fcn. (aka local abuse):
   local branch_name=""
   local local_release=""
@@ -3213,6 +3226,7 @@ resolve_rebase_boundary () {
   if put_wise_identify_rebase_boundary_and_remotes \
     "${_action_desc:-bump}" \
     "${_inhibit_exit_if_unidentified:-true}" \
+    "${skip_integrity_checks}" \
   ; then
     REBASE_BOUNDARY="${rebase_boundary}"
   else
