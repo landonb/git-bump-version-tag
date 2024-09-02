@@ -196,6 +196,26 @@ DETAILS
     V, -V, v-del   Remove \"v\" tag prefix
                    - Removes v-prefix if previous tag was v-prefixed
 
+- AUTOMATION OPTIONS:
+
+  These options are useful for automation, namely tig config, to make
+  it easy to pass a <COMMIT> but then to indicate whether that ref
+  should be used or not:
+
+    A              Pick commit to tag automatically. This is the default
+                   behavior when <COMMIT> is not specified, and essentially
+                   tells git-bump-version-tag to ignore the <COMMIT> arg.
+
+    h, H           Use \"HEAD\" as <COMMIT> arg (regardless of the <COMMIT>
+                   arg passed in).
+
+    S              Use <COMMIT> arg as specified.
+
+  See DepoXy tig config for an example of how these options can be
+  used to simplify the otherwise tedious tig config code:
+
+    https://github.com/DepoXy/depoxy/blob/release/home/.config/tig/config-depoxy
+
 ARGUMENTS:
 
   <VERSIONTAG>
@@ -609,6 +629,7 @@ must_resolve_user_args () {
   local skip_opts=0
   local n_extra_args=0
   local end_of_options=false
+  local tag_commit_adjust=""
 
   # USYNC: version_tag_environs
   VERSION_TAG=""
@@ -648,7 +669,7 @@ must_resolve_user_args () {
           elif is_known_commit_ref "${cur_arg}"; then
             skip_opts=3
 
-            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
+            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}" "${tag_commit_adjust}")"
           else
             >&2 echo "ERROR: Not a known <UPSTREAM> or <COMMIT>: “${cur_arg}”"
             local remote_name
@@ -662,7 +683,7 @@ must_resolve_user_args () {
           skip_opts=3
 
           if is_known_commit_ref "${cur_arg}"; then
-            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
+            TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}" "${tag_commit_adjust}")"
           else
             >&2 echo "ERROR: Expected <COMMIT>, not: “${cur_arg}”"
 
@@ -693,7 +714,7 @@ must_resolve_user_args () {
     elif is_known_commit_ref "${cur_arg}"; then
       skip_opts=3
 
-      TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}")"
+      TAG_COMMIT_ARG="$(unpack_commit_ref "${cur_arg}" "${tag_commit_adjust}")"
     else
       case "${cur_arg}" in
         s | -s | same)
@@ -758,6 +779,7 @@ must_resolve_user_args () {
 
           exit_0
           ;;
+
         M | -M | major) bump_major ;;
         m | -m | minor) bump_minor ;;
         p | -p | patch) bump_patch ;;
@@ -765,6 +787,12 @@ must_resolve_user_args () {
         l | -l | least) bump_least ;;
         v | -v | v-pre) add_prefix ;;
         V | -V | v-del) del_prefix ;;
+
+        A | -A) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_AUTO}" ;;
+        h | -h) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_HEAD}" ;;
+        H | -H) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_HEAD}" ;;
+        S | -S) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_PICK}" ;;
+
         *)
           if [ -z "${cur_arg}" ]; then
             >&2 echo "BWARE: Did you mean to pass an empty argument?"
@@ -789,6 +817,10 @@ must_resolve_user_args () {
               l) bump_least ;;
               v) add_prefix ;;
               V) del_prefix ;;
+              A) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_AUTO}" ;;
+              h) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_HEAD}" ;;
+              H) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_HEAD}" ;;
+              S) tag_commit_adjust="${BUMP_TAG_COMMIT_ADJUST_PICK}" ;;
               *)
                 >&2 echo "ERROR: Unrecognized argument: “${cur_arg}”"
 
@@ -982,10 +1014,20 @@ is_known_commit_ref () {
     || git_commit_object_name "${gitref}" > /dev/null
 }
 
+BUMP_TAG_COMMIT_ADJUST_AUTO="auto"
+BUMP_TAG_COMMIT_ADJUST_HEAD="head"
+BUMP_TAG_COMMIT_ADJUST_PICK="pick"
+
 unpack_commit_ref () {
   local gitref="$1"
+  local tag_commit_adjust="$2"
 
-  if [ "${gitref}" = "${GITNUBS_SPECIAL_TIG_SHA_UNSTAGED}" ]; then
+  if [ "${tag_commit_adjust}" = "${BUMP_TAG_COMMIT_ADJUST_AUTO}" ]; then
+    :  # Print nothing, i.e., TAG_COMMIT="", and we'll figure it out.
+  elif [ "${tag_commit_adjust}" = "${BUMP_TAG_COMMIT_ADJUST_HEAD}" ]; then
+    printf "%s" "HEAD"
+  # else, BUMP_TAG_COMMIT_ADJUST_PICK
+  elif [ "${gitref}" = "${GITNUBS_SPECIAL_TIG_SHA_UNSTAGED}" ]; then
     printf "%s" "HEAD"
   else
     printf "%s" "${gitref}"
