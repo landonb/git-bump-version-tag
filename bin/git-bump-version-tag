@@ -447,8 +447,19 @@ must_remote_exists () {
 #   operation, and sometimes you're too in the zone
 #   to be bothered.
 # - MAYBE: Is there a better approach to gating `fetch`?
+#
+# COPYD: See varied copy of this fcn., `git_fetch_with_backoff`, in DepoXy at:
+#   ~/.kit/git/git-put-wise/lib/common_put_wise.sh
+# - But with branch name support.
+
 periodically_fetch () {
   local remote_name="$1"
+
+  if is_git_put_wise_sort_and_sign_enabled; then
+    # GPW will fetch, and has its own backoff, git_fetch_with_backoff.
+
+    return 0
+  fi
 
   # E.g., "tools.git-bump-version-tag".
   local bump_config_section="tools.${PROG_NAME_FRIENDLY}"
