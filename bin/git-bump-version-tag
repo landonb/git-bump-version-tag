@@ -532,7 +532,9 @@ must_resolve_user_args () {
   }
 
   bump_major () {
-    bump_bumps_count "M"
+    local replay_arg="${1-M}"
+
+    bump_bumps_count "${replay_arg}"
     ! ${bump_verbatim} && bmajor=true && return || true
 
     # Note that if var. unset, the let += 1 sets it to 1.
@@ -541,7 +543,9 @@ must_resolve_user_args () {
   }
 
   bump_minor () {
-    bump_bumps_count "m"
+    local replay_arg="${1-m}"
+
+    bump_bumps_count "${replay_arg}"
     ! ${bump_verbatim} && bminor=true && return || true
 
     let 'minor += 1'; patch=0; prerelease=; finalnum=;
@@ -549,7 +553,9 @@ must_resolve_user_args () {
   }
 
   bump_patch () {
-    bump_bumps_count "p"
+    local replay_arg="${1-p}"
+
+    bump_bumps_count "${replay_arg}"
     ! ${bump_verbatim} && bpatch=true && return || true
 
     # Only bump patch if no current alpha. Otherwise just drop alpha.
@@ -563,7 +569,9 @@ must_resolve_user_args () {
 
   # What SemVer calls "pre-release".
   bump_alpha () {
-    bump_bumps_count "a"
+    local replay_arg="${1-a}"
+
+    bump_bumps_count "${replay_arg}"
     ! ${bump_verbatim} && balpha=true && return || true
 
     BUMP_IS_PRERELEASE=true
@@ -580,9 +588,9 @@ must_resolve_user_args () {
 
   bump_least () {
     if ${was_prerelease}; then
-      bump_alpha
+      bump_alpha "${_replay_arg+}"
     else
-      bump_patch
+      bump_patch "${_replay_arg+}"
     fi
 
     add_replay "${_replay_arg:-l}"
