@@ -1315,6 +1315,7 @@ git_bump_confirm_push () {
   local remote_name="$2"
   local tag_commit="$3"
   local upstream_ref="$4"
+  local use_put_wise="${5:-false}"
 
   if ${BMP_RESTRICT_LOCAL:-false}; then
     THE_CHOICE="n"
@@ -1336,9 +1337,15 @@ git_bump_confirm_push () {
   local msg="Okay to push “${version_tag}” to “${remote_name}”${including_msg}"
 
   local THE_CHOICE
-  ask_yesnoskip_maybe "${msg}" "Y"
+  if ! ${use_put_wise}; then
+    ask_yesnoskip_maybe "${msg}" "Y"
 
-  [ $? -ne 0 ] && exit_1 || true
+    [ $? -ne 0 ] && exit_1 || true
+  else
+    THE_CHOICE="y"
+
+    >&2 echo "${msg}? [Auto-yessing: defer to put-wise prompts]"
+  fi
 
   [ "${THE_CHOICE}" != "y" ] && return 1 || return 0
 }
@@ -1613,11 +1620,18 @@ git_tag_remote_push () {
     upstream_ref="$(git_first_commit_sha)"
   fi
 
+  local use_put_wise=false
+
+  if is_put_wise_push_remote_same "${remote_name}" "${remote_branch}"; then
+    use_put_wise=true
+  fi
+
   git_bump_confirm_push \
     "${version_tag}" \
     "${remote_name}" \
     "${tag_commit}" \
     "${upstream_ref}" \
+    "${use_put_wise}" \
     || return 0
 
   # ***
@@ -1636,6 +1650,7 @@ git_tag_remote_push () {
       "${tag_commit}" \
       "${remote_name}" \
       "${remote_branch}" \
+      "${use_put_wise}"
 
     echo "✓ Pushed remote branch"
   fi
@@ -1670,12 +1685,7 @@ git_branch_remote_push () {
   local tag_commit="$1"
   local remote_name="$2"
   local remote_branch="$3"
-
-  local use_put_wise=false
-
-  if is_put_wise_push_remote_same "${remote_name}" "${remote_branch}"; then
-    use_put_wise=true
-  fi
+  local use_put_wise="${4:-false}"
 
   if ${use_put_wise}; then
     # Use --skip-rebase because previously would've called
