@@ -1613,7 +1613,11 @@ git_tag_remote_push () {
     upstream_ref="$(git_first_commit_sha)"
   fi
 
-  git_bump_confirm_push "${version_tag}" "${remote_name}" "${tag_commit}" "${upstream_ref}" \
+  git_bump_confirm_push \
+    "${version_tag}" \
+    "${remote_name}" \
+    "${tag_commit}" \
+    "${upstream_ref}" \
     || return 0
 
   # ***
@@ -1628,7 +1632,10 @@ git_tag_remote_push () {
   #   - Note that we previously bailed if ${remote_branch} is
   #     not the same as the local branch.
   if ! ${skip_push_branch}; then
-    git_branch_remote_push "${tag_commit}" "${remote_name}" "${remote_branch}"
+    git_branch_remote_push \
+      "${tag_commit}" \
+      "${remote_name}" \
+      "${remote_branch}" \
 
     echo "✓ Pushed remote branch"
   fi
@@ -3194,7 +3201,8 @@ resolve_rebase_boundary () {
   already_sorted=false
   already_signed=false
   if put_wise_identify_rebase_boundary_and_remotes \
-    "${_action_desc:-bump}" "${_inhibit_exit_if_unidentified:-true}" \
+    "${_action_desc:-bump}" \
+    "${_inhibit_exit_if_unidentified:-true}" \
   ; then
     REBASE_BOUNDARY="${rebase_boundary}"
   else
