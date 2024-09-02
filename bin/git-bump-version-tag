@@ -93,9 +93,10 @@ ACTIONS
     P|-P|push
     c|-c|current
     x|-x|--check|--verify
+
+    help|--help
+    usage|--usage
     version|--version
-    h|-h|help|--help
-    u|-u|usage|--usage
 
 OPTIONS
 ~~~~~~~
@@ -174,18 +175,18 @@ DETAILS
                        (Vs. parsing output of failed \`${PROG_NAME} <bump>\`
                         command, which itself is unreliable if UX changes)
 
-    version, --version
-                   Show application (${PROG_NAME}'s) version number
-
-    h, -h, help, --help
+    help, --help
                    Print short help
                    - Note that git intercepts \`--help\` and that this
                      project doesn't currently ship a man doc, so
                        \$ git bump-version-tag --help
                        No manual entry for git-bump-version-tag                  
 
-    u, -u, usage, --usage
+    usage, --usage
                    Print long help (what you're reading)
+
+    version, --version
+                   Show application (${PROG_NAME}'s) version number
 
 - BUMP OPTIONS:
 
@@ -701,16 +702,6 @@ must_resolve_user_args () {
           ACTION_PUSH=true
           add_replay "${_replay_arg:-P}"
           ;;
-        h | -h | help | --help)
-          print_usage ${_include_details:-false}
-
-          exit_0
-          ;;
-        u | -u | usage | --usage)
-          print_usage ${_include_details:-true}
-
-          exit_0
-          ;;
         c | -c | cur | --cur | current | --current)
           # The currect project version, with distance.
           ACTION_CURRENT=true
@@ -743,6 +734,16 @@ must_resolve_user_args () {
           ACTION_CHECK=true
           add_replay "${_replay_arg:-x}"
           ;;
+        help | --help)
+          print_usage ${_include_details:-false}
+
+          exit_0
+          ;;
+        usage | --usage)
+          print_usage ${_include_details:-true}
+
+          exit_0
+          ;;
         version | --version)
           # The git-bump-version-tag version.
           print_version
@@ -771,10 +772,6 @@ must_resolve_user_args () {
                  add_replay "${_replay_arg:-d}" ;;
               P) ACTION_PUSH=true;
                  add_replay "${_replay_arg:-P}" ;;
-              h) print_usage ${_include_details:-false};
-                 exit_0 ;;
-              u) print_usage ${_include_details:-true};
-                 exit_0 ;;
               x) ACTION_CHECK=true;
                  add_replay "${_replay_arg:-x}" ;;
               M) bump_major ;;
