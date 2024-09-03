@@ -7,6 +7,16 @@
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# SETUP: See `source_deps` below for list of system and optional deps:
+#   python
+#   pipx install dunamai
+#   perl
+#   realpath  # brew install coreutils
+# - Optional: https://github.com/DepoXy/git-put-wise#🥨
+#   - Though only if you already use put-wise, otherwise adds no value.
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 # SAVVY: The version command (`print_version`) will cd to the git-bump
 # project and run `git-bump-version-tag current` to print the current
 # app version.
