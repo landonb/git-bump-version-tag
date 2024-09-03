@@ -2765,12 +2765,13 @@ alert_if_inherent_upstream_branch_ne_local_branch_name () {
         local upstream_branch="$(git_upstream_parse_branch_name 2> /dev/null)" \
           || true
 
-        if [ "${remote_branch}" != "${upstream_branch}" ]; then
+        if [ "${remote_branch}" != "${upstream_branch}" ] \
+          && ! ${ACTION_CURRENT} \
+          && ! ${ACTION_DISTANCE} \
+        ; then
           local action_msg=""
           if ${ACTION_DELETE}; then
             action_msg="Deleting tag from"
-          elif ${ACTION_CURRENT} || ${ACTION_DISTANCE}; then
-            action_msg="Checking tags from"
           else
             # I.e., ACTION_PUSH | ACTION_CHECK
             action_msg="Pushing tag to"
@@ -3113,16 +3114,17 @@ sort_and_sign_and_re_resolve_tag_commit () {
     return 0
   fi
 
+  if ${ACTION_CURRENT} || ${ACTION_DISTANCE}; then
+
+    return 0
+  fi
+
   local REBASE_BOUNDARY=""
   PW_PUSH_REMOTE_RELEASE=""
   local already_sorted=false
   resolve_rebase_boundary
 
-  if ${ACTION_CHECK} \
-    || ${ACTION_CURRENT} \
-    || ${ACTION_DELETE} \
-    || ${ACTION_DISTANCE} \
-    || ${ACTION_SAME}; then
+  if ${ACTION_CHECK} || ${ACTION_DELETE} || ${ACTION_SAME}; then
     # Previous `resolve_rebase_boundary` was for integrity only.
 
     return 0
