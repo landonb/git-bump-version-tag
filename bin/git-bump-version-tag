@@ -1386,24 +1386,22 @@ git_tag_local_add () {
   local curr_version="$3"
   local junior_version="$4"
 
-  if ! "${ACTION_PUSH}"; then
-    # Note that CURR_VERSION is really COMMIT_VERSION when TAG_COMMIT_ARG
-    # is specified, i.e., it's not the actual largest tag version present.
-    if [ "${version_tag}" = "${curr_version}" ] \
-      || [ "${version_tag}" = "${junior_version}" ] \
-    ; then
-      echo "✓ Local tag exists"
+  # Note that CURR_VERSION is really COMMIT_VERSION when TAG_COMMIT_ARG
+  # is specified, i.e., it's not the actual largest tag version present.
+  if [ "${version_tag}" = "${curr_version}" ] \
+    || [ "${version_tag}" = "${junior_version}" ] \
+  ; then
+    echo "✓ Local tag exists"
 
-      return 0
-    fi
-
-    # Prompt user to set local tag. Returns zero on Yes, exits
-    # on No, or returns nonzero on Skip. But Skip is basically
-    # just graceful exit: the only operation remaining pushes
-    # the local tag to the remote, but there's no local tag, so.
-    git_bump_confirm_next "${version_tag}" "${curr_version}" \
-      || exit_1
+    return 0
   fi
+
+  # Prompt user to set local tag. Returns zero on Yes, exits
+  # on No, or returns nonzero on Skip. But Skip is basically
+  # just graceful exit: the only operation remaining pushes
+  # the local tag to the remote, but there's no local tag, so.
+  git_bump_confirm_next "${version_tag}" "${curr_version}" \
+    || exit_1
 
   # Note this command tags (scoped) HEAD, as opposed to a specific branch.
   # E.g., we could tag, say, the release branch:
