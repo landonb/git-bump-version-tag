@@ -3008,6 +3008,17 @@ push_or_delete () {
   # (well, abandon until the next fetch or pull).
   if ${ACTION_DELETE}; then
     git_tag_local_delete "${VERSION_TAG}"
+    # On the `git bump dP` command, after deleting the local tag, clear
+    # the current version so that the git_tag_local_add above will run
+    # the next time this fcn. is called. (Not that clearing the current
+    # version almost works, e.g., CURR_VERSION="" && COMMIT_VERSION="",
+    # but the add-tag prompt will ask if okay to create the *first*
+    # version tag. So do it the long way.)
+    must_resolve_tag_commit_and_curr_version \
+      "${TAG_COMMIT_ARG}" "${VERSION_ARG}" \
+      "${remote_name}" "${remote_branch}" \
+      "${remote_head_sha}" "${UPSTREAM_ARG}" \
+      || exit_1
   fi
 }
 
