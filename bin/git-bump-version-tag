@@ -393,8 +393,12 @@ print_git_remote_default_branch_name () {
   # Misleading check. If branch_names empty, num_branches actually -eq 1
   # because wc -l counts empty line.
   if [ -z "${branch_names}" ] || [ ${num_branches} -eq 0 ]; then
-    >&2 echo "ERROR: No local branches found for remote “${remote_name}”" \
-      "Perhaps you need to fetch?"
+    if ! ${ACTION_DELETE}; then
+      >&2 echo "ERROR: No local branches found for remote “${remote_name}”" \
+        "Perhaps you need to fetch?"
+
+      return 1
+    fi
 
     return 0
   fi
