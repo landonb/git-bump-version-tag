@@ -2911,7 +2911,7 @@ manage_tags () {
 
     ACTION_DELETE=false
     # ACTION_PUSH is implied unless ACTION_DELETE, so setting it false
-    # after ACTION_DELET=false would work just the same.
+    # after ACTION_DELETE=false would work just the same.
     #  ACTION_PUSH=false
 
     tag_commit="${default_tag_commit}"
