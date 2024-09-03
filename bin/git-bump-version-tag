@@ -2533,25 +2533,48 @@ resolve_remote_name_from_remotes () {
       remote_name="$(echo "${push_remotes}" | sed 's/^\([^[:space:]]\+\).*/\1/')"
     else
       # This is the case: [ ${num_remotes} -gt 1 ]
-      >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
-      >&2 echo "- Please indicate which upstream to use:"
-      >&2 echo "  - You could set a remote tracking branch"
-      >&2 echo "    - E.g., if you've already pushed to the remote:"
-      >&2 echo "        git branch -u <remote/branch>"
-      >&2 echo "    - Or if this is your first push:"
-      >&2 echo "        git push -u <remote> <ref>:refs/heads/<branch>"
-      >&2 echo "  - Or you could specify the <UPSTREAM> arg, e.g.:"
-      >&2 echo "        $( \
-        echo "${PROG_NAME} ${REPLAY_ARGS} ${VERSION_ARG} -- <UPSTREAM> ${TAG_COMMIT_ARG}" \
-        | sed 's/ \+/ /')"
 
-      if ! (${ACTION_CURRENT} || ${ACTION_DISTANCE}); then
-        >&2 echo "Remedy the situation and try again to apply ${version_tag}"
+      # Use git-log to find most recent remote branch ref under HEAD.
+      local gitref
+      for gitref in "$( \
+        awk -F', ' '{ for(i = 1; i <= NF; i++) print $i }' <<<"$( \
+          git log --format=%D | sed '/^$/d'
+        )" | grep -v -e "^HEAD ->" -e "^tag: " -e "^[^/]*$"
+      )"; do
+        if git_remote_branch_exists "${gitref}"; then
+          remote_name="$(git_upstream_parse_remote_name "${gitref}")"
 
-        return 1
+          break
+        fi
+      done
+
+      if [ -z "${remote_name}" ]; then
+        >&2 echo "ERROR: Branch has no upstream, but more than one remote configured"
+
+        if ! (${ACTION_CURRENT} || ${ACTION_DISTANCE}); then
+          >&2 echo "- Please indicate which upstream to use:"
+          >&2 echo "  - You could set a remote tracking branch"
+          >&2 echo "    - E.g., if you've already pushed to the remote:"
+          >&2 echo "        git branch -u <remote/branch>"
+          >&2 echo "    - Or if this is your first push:"
+          >&2 echo "        git push -u <remote> <ref>:refs/heads/<branch>"
+          >&2 echo "  - Or you could specify the <UPSTREAM> arg, e.g.:"
+          >&2 echo "        $( \
+            echo "${PROG_NAME} ${REPLAY_ARGS} ${VERSION_ARG} -- <UPSTREAM> ${TAG_COMMIT_ARG}" \
+            | sed 's/ \+/ /')"
+
+          local suffix=""
+          if [ "${version_tag}" != "${PREFLIGHT_ARGS}" ]; then
+            suffix=" to apply ${version_tag}"
+          fi
+
+          >&2 echo "Please remedy the situation and try again${suffix}"
+
+          return 1
+        fi
+
+        remote_name="${BUMP_SKIP_REMOTE}"
       fi
-
-      remote_name="${BUMP_SKIP_REMOTE}"
     fi
   else
     # No remotes. Skip remote dealings.
