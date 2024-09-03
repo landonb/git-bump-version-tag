@@ -1062,15 +1062,19 @@ print_usage () {
 
   echo "${USAGE_ONELINE}"
 
+  if ! ${include_details}; then
+    echo
+    echo "Run \`${PROG_NAME} usage\` for complete help"
+  fi
+
   print_usage_summary
 
   if ${include_details}; then
     echo "${USAGE_DETAILS}"
-  else
-    echo "See \`${PROG_NAME} usage\` for complete help"
+    echo
   fi
 
-  echo
+  printf "%s" "${PROG_NAME} vers. "
   print_version
 }
 
