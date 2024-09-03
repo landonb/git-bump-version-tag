@@ -2750,12 +2750,14 @@ must_resolve_tag_commit_and_curr_version () {
     #
     #   - Compared to Bash v5:
     #
+    #     BashV5@macOS $ input=$'line 1\nline 2\nline 3'
     #     BashV5@macOS $ IFS=$'\n' read -d '\n' ln1 ln2 ln3 <<<${input} ; echo $ln1
     #     line 1
     #
     #   - Also note that `<<<$()` (or similar `< <()`) is a Bashism (not POSIX).
     #
-    # - However, unpacking the output to an array works everywhere, e.g.,
+    # - However, unpacking the output to an array works most places
+    #   (although arrays are not POSIX), e.g.,
     #
     #     $ /bin/sh
     #     $ input=$'line 1\nline 2\nline 3'
@@ -2764,6 +2766,11 @@ must_resolve_tag_commit_and_curr_version () {
     #     $ IFS=$' \t\n'
     #     $ echo "${arr[0]}"
     #     line 1
+    #
+    #   - As stated, not POSIX, e.g., here's bash:
+    #
+    #     $ arr=($input)
+    #     /bin/sh: 7: Syntax error: "(" unexpected
 
     local tag_commit_and_name
     tag_commit_and_name="$( \
