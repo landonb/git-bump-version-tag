@@ -2630,7 +2630,13 @@ resolve_tag_commit () {
   if [ -z "${tag_commit_arg}" ]; then
     if ${ACTION_SAME}; then
       local curr_version="$(git_largest_version_tag)"
-      tag_commit="$(git_tag_commit_object "${curr_version}")"
+      if [ -z "${curr_version}" ]; then
+        >&2 echo "ERROR: No existing version tag"
+
+        return 1
+      else
+        tag_commit="$(git_tag_commit_object "${curr_version}")"
+      fi
     elif [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
       && [ -n "${remote_head_sha}" ] \
     ; then
@@ -2653,9 +2659,11 @@ resolve_tag_commit () {
     tag_commit="$(git_commit_object_name "${tag_commit_arg}")"
   fi
 
-  tag_commit_name="$( \
-    print_head_dist_and_ref_name "${tag_commit}" ${tag_commit_ref_name}
-  )"
+  if [ -n "${tag_commit}" ]; then
+    tag_commit_name="$( \
+      print_head_dist_and_ref_name "${tag_commit}" ${tag_commit_ref_name}
+    )"
+  fi
 
   # Silly multi-value return mechanism (caller ingests by fiddling IFS).
   echo "${tag_commit}"
@@ -2762,7 +2770,7 @@ must_resolve_tag_commit_and_curr_version () {
       resolve_tag_commit "${tag_commit_ref}" \
         "${remote_name}" "${remote_branch}" \
         "${remote_head_sha}"
-    )"
+    )" || return 1
 
     declare -a values
 
@@ -2779,7 +2787,8 @@ must_resolve_tag_commit_and_curr_version () {
     if [ -z "${TAG_COMMIT_ARG}" ] \
       && [ "${remote_name}" != "${BUMP_SKIP_REMOTE}" ] \
     ; then
-      _resolve_tag_commit "HEAD"
+      _resolve_tag_commit "HEAD" \
+        || return 1
     fi
   }
 
@@ -2790,7 +2799,8 @@ must_resolve_tag_commit_and_curr_version () {
 
   # Get the tag_commit. It'll be TAG_COMMIT_ARG if set,
   # remote/branch if exists, or falls back scoped HEAD.
-  _resolve_tag_commit "${TAG_COMMIT_ARG}"
+  _resolve_tag_commit "${TAG_COMMIT_ARG}" \
+    || return 1
 
   # Identify the largest version tag applied after tag_commit.
   local largest_version_from_ahead="$( \
