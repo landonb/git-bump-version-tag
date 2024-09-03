@@ -765,7 +765,7 @@ must_resolve_user_args () {
           fi
           ;;
         D | -D | dist | --dist | distance | --distance)
-          # The currect project version distance only.
+          # The current project version distance only.
           ACTION_DISTANCE=true
           if [ "${curr_version}" = "${PREFLIGHT_ARGS}" ]; then
             # Wait for next call to parse, when curr_version is set.
