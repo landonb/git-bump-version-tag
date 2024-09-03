@@ -3099,7 +3099,11 @@ sort_and_sign_and_re_resolve_tag_commit () {
   local already_sorted=false
   resolve_rebase_boundary
 
-  if ${ACTION_CHECK} || ${ACTION_CURRENT} || ${ACTION_DELETE}; then
+  if ${ACTION_CHECK} \
+    || ${ACTION_CURRENT} \
+    || ${ACTION_DELETE} \
+    || ${ACTION_DISTANCE} \
+    || ${ACTION_SAME}; then
     # Previous `resolve_rebase_boundary` was for integrity only.
 
     return 0
