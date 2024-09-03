@@ -1417,7 +1417,7 @@ git_tag_local_add () {
     -m \"Version: ${version_tag#${GITNUBS_PREFIX:v}}\" \\
     \"${tag_commit}\""
 
-  echo "✓ Created local tag"
+  echo "✓ Created local version tag (${version_tag})"
 }
 
 # ***
