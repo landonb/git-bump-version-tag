@@ -3090,6 +3090,7 @@ sort_and_sign_commits_with_prompt_maybe () {
   fi
 
   if git_is_same_commit "${rebase_boundary}" "HEAD"; then
+    # Nothing to do.
 
     return 0
   fi
