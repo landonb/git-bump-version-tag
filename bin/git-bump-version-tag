@@ -2511,6 +2511,8 @@ resolve_remote_name () {
 resolve_remote_name_from_remotes () {
   local version_tag="$1"
 
+  local remote_name=""
+
   if [ -n "$(git remote -v)" ]; then
     local push_remotes
     push_remotes="$(git remote -v | grep -e ' (push)$')"
