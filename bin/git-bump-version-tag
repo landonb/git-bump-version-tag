@@ -1245,6 +1245,11 @@ ask_yesnoskip_maybe () {
         || retcode=$?
 
       # Print what we read from the pipe to show input, and to wrap output.
+      # - Printed to stderr because that's what ask_yesnoskip_uses (it prompts
+      #   to stderr and prints result to stdout for us to capture; although
+      #   we could rewrite it to print to stdout and write result to `local`
+      #   variable, if we ever decide that prompting to stderr is some sort
+      #   of abuse).
       >&2 echo "${input_line}"
     fi
   fi
