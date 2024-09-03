@@ -156,7 +156,13 @@ DETAILS
                    - Useful if you messed up — but it's on you to ensure it's
                      not too late to delete a tag you previously published
 
-    P, -P, push    Push tag (default action when not 'delete')
+    P, -P, push    Create new version tag and push it (and maybe commits)
+                   - Default action when no other action specified
+                   - Using 'P' explicitly can perform a delete-push, which
+                     can be used to replace an errant version tag. E.g., if
+                     you had to force-push a fixup and orphaned a version tag
+                     you just made, you can use \`${PROG_NAME} dP\` to delete
+                     the orphan tag, then recreate and push a new tag
 
     c, -c, cur, --cur, current, --current
                    Show current project version number
