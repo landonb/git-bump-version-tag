@@ -3243,7 +3243,9 @@ is_sorted_and_signed_or_gpw_disabled () {
   # - Also prints "✓ Verified ..." message, if either or both verified.
   # CXREF: ~/.kit/git/git-put-wise/lib/common_put_wise.sh
   already_sorted=false
-  if is_already_sorted_and_signed "${rebase_boundary}" "${enable_gpg_sign}" \
+  if is_already_sorted_and_signed \
+    "${rebase_boundary}" \
+    "${enable_gpg_sign}" \
   ; then
 
     return 0
