@@ -1729,7 +1729,7 @@ git_branch_remote_push () {
 
   if ${use_put_wise}; then
     # Use --skip-rebase because previously would've called
-    #   resort_and_sign_commits_before_push_unless_unnecessary
+    #   resort_and_sign_commits_since_boundary_unless_unnecessary
     # and avoids the but-it's-okay message re: new version tag
     # being within the rebase boundary.
     git put-wise push --skip-rebase
@@ -3180,7 +3180,7 @@ sort_and_sign_commits_with_prompt_maybe () {
     #   exits 1 if ahead of HEAD, or diverged.
     #   - Propagate nonzero exit so user can solve
     # CXREF: ~/.kit/git/git-put-wise/lib/common_put_wise.sh
-    ( resort_and_sign_commits_before_push_unless_unnecessary "${rebase_boundary}" \
+    ( resort_and_sign_commits_since_boundary_unless_unnecessary "${rebase_boundary}" \
         ${_enable_gpg_sign:-true} \
     ) || exit_1
   fi
