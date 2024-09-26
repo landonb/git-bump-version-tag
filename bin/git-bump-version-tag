@@ -2633,7 +2633,7 @@ resolve_remote_branch () {
       DEFAULT_BRANCH="${remote_branch}"
     fi
 
-    ${DRY_RUN} && echo "Remote: ${remote_name}/${remote_branch}" || true
+    ${DRY_RUN} && >&2 echo "Remote: ${remote_name}/${remote_branch}" || true
   fi
 
   printf "%s" "${remote_branch}"
