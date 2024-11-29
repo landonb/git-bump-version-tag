@@ -3348,7 +3348,8 @@ resolve_rebase_boundary () {
     >&2 echo "- If you would like to use a custom boundary,"
     >&2 echo "  consult the put-wise push output for options:"
     >&2 echo "    git put-wise push"
-    >&2 echo "- Otherwise we suggest rebasing all commits"
+    >&2 echo "- Otherwise we may suggest rebasing all commits"
+    >&2 echo "  (if this is a new project or has no other devs)"
   fi
 
   PW_PUSH_REMOTE_RELEASE="${remote_release}"
