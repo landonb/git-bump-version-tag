@@ -167,9 +167,9 @@ Choose from one of the following setup options, or go your own way.
       git clone https://github.com/landonb/git-bump-version-tag.git
       # Add a symlink to the git subcommand. say:
       cmdpath="$(pwd)/git-bump-version-tag/bin/git-bump-version-tag"
-      /bin/ln -s "${cmdpath}" ~/.local/bin/
+      ln -s "${cmdpath}" ~/.local/bin/
       # Or, if you wanted to wire it to `git bump` instead, try:
-      /bin/ln -s "${cmdpath}" ~/.local/bin/git-bump
+      ln -s "${cmdpath}" ~/.local/bin/git-bump
       ```
 
 3. You could clone this project and update your `~/.gitconfig` with the path
