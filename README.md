@@ -193,8 +193,11 @@ Choose from one of the following setup options, or go your own way.
   https://github.com/c4urself/bump2version —
   A Python project that bumps version strings in files.
 
-This project is most similar to the Ruby project,
-``git-version-bump``, with the following differences:
+  https://github.com/tpope/git-bump —
+  Create Git release commits and tags with changelogs
+
+This project is most similar to ``mpalmer/git-version-bump``,
+a Ruby project, with the following differences:
 - This project is pure Bash (it could be POSIX except for array usage);
 - This project performs error- and reality-checking;
 - This project supports bumping the alpha part; and
