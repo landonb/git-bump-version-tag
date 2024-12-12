@@ -326,13 +326,15 @@ source_deps () {
   # https://github.com/landonb/sh-ask-yesnoskip
   source_lib "${SHOILERPLATE:-${HOME}/.kit/sh}" "sh-ask-yesnoskip/bin/ask-yesnoskip.sh"
 
-  # Load git_* functions, including
+  # Load git_* functions, including:
   #   git_branch_name
   #   git_insist_git_repo
   #   git_largest_version_tag
   #   git_remote_exists
   #   git_versions_tagged_for_commit_object
-  #   git_tag_remote_verify_commit;
+  #   git_tag_remote_verify_commit
+  #   git_upstream_parse_remote_name
+  #   git_upstream_parse_branch_name
   # and load environs, incl. GITNUBS_RE_VERSPARTS, GITNUBS_RE_SEMVERSPARTS.
   # CXREF: https://github.com/landonb/sh-git-nubs#🌰
   #   ~/.kit/sh/sh-git-nubs/lib/git-nubs.sh
