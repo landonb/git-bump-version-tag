@@ -9,7 +9,7 @@
 
 # Set SKIP_PROMPT_NL=true to suppress the blank echo line.
 
-ask_yesnoskip () {
+ask_yesnoskip() {
   local the_ask="$1"
   local default_choice="${2:-N}"
 
@@ -75,9 +75,8 @@ ask_yesnoskip () {
 
 # ***
 
-os_is_macos () {
+os_is_macos() {
   [ "$(uname)" = 'Darwin' ]
 }
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
